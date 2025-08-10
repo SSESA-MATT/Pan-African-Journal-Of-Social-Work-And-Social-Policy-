@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Assignment</title>
+  <style>
+    /* Base styles */
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      background: linear-gradient(to right, #171717, #2d2d2d);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      border-radius: 5px 5px 0 0;
+    }
+    .logo {
+      margin-bottom: 15px;
+    }
+    .content {
+      background-color: #ffffff;
+      padding: 30px;
+      border-radius: 0 0 5px 5px;
+      border-left: 1px solid #eaeaea;
+      border-right: 1px solid #eaeaea;
+      border-bottom: 1px solid #eaeaea;
+    }
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+      color: #666;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #ef4444;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      margin-top: 15px;
+    }
+    .divider {
+      border-top: 3px solid #22c55e;
+      margin: 10px 0;
+      width: 50px;
+    }
+    .date-highlight {
+      font-weight: bold;
+      color: #ef4444;
+    }
+    .info-box {
+      background-color: #f9fafb;
+      padding: 15px;
+      border-radius: 5px;
+      border-left: 4px solid #ef4444;
+      margin: 15px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">
+        <span style="font-size: 24px; font-weight: bold;">Africa Journal</span><br>
+        <span style="font-size: 16px;">of Social Work and Social Policy</span>
+      </div>
+      <div class="divider" style="margin: 15px auto;"></div>
+    </div>
+    
+    <div class="content">
+      <h2>Review Assignment</h2>
+      
+      <p>Dear {{reviewerName}},</p>
+      
+      <p>You have been invited to review a manuscript for the Africa Journal of Social Work and Social Policy. Your expertise in this subject matter would be valuable in evaluating this submission.</p>
+      
+      <div class="info-box">
+        <h4 style="margin-top: 0;">Submission Details:</h4>
+        <p><strong>Title:</strong> "{{submissionTitle}}"</p>
+        <p><strong>Due Date:</strong> <span class="date-highlight">{{dueDate}}</span></p>
+      </div>
+      
+      <h3>Review Guidelines:</h3>
+      <p>Please evaluate the submission on the following criteria:</p>
+      <ul>
+        <li>Originality and contribution to the field</li>
+        <li>Methodological rigor and appropriateness</li>
+        <li>Clarity and coherence of arguments</li>
+        <li>Engagement with Indigenous African knowledge systems</li>
+        <li>Relevance to social work practice or policy in Africa</li>
+        <li>Overall quality and suitability for publication</li>
+      </ul>
+      
+      <p>Your review should include both a recommendation (accept, revise, reject) and detailed comments for the author.</p>
+      
+      <a href="https://africajournal.org/reviewer/dashboard" class="button">Access Your Reviewer Dashboard</a>
+      
+      <p style="margin-top: 30px;">If you're unable to complete this review by the due date or have any questions, please <a href="https://africajournal.org/contact" style="color: #22c55e; text-decoration: none;">contact us</a> as soon as possible.</p>
+      
+      <p>Thank you for your valuable contribution to maintaining the scholarly quality of our journal.</p>
+    </div>
+    
+    <div class="footer">
+      <p>© {{current_year}} Africa Journal of Social Work and Social Policy</p>
+      <p>East Africa Social Work Regional Resource Centre</p>
+      <p>
+        <a href="https://africajournal.org/privacy" style="color: #666; text-decoration: underline;">Privacy Policy</a> | 
+        <a href="https://africajournal.org/unsubscribe" style="color: #666; text-decoration: underline;">Unsubscribe</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

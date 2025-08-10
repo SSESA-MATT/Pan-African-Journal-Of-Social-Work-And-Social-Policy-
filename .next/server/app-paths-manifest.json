@@ -1,0 +1,19 @@
+{
+  "/_not-found": "app/_not-found.js",
+  "/about/page": "app/about/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/articles/[id]/page": "app/articles/[id]/page.js",
+  "/articles/page": "app/articles/page.js",
+  "/author/page": "app/author/page.js",
+  "/file-upload-demo/page": "app/file-upload-demo/page.js",
+  "/contact/page": "app/contact/page.js",
+  "/forgot-password/page": "app/forgot-password/page.js",
+  "/help/page": "app/help/page.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/privacy/page": "app/privacy/page.js",
+  "/policies/page": "app/policies/page.js",
+  "/register/page": "app/register/page.js",
+  "/reviewer/dashboard/page": "app/reviewer/dashboard/page.js",
+  "/reviewer/review/[submissionId]/page": "app/reviewer/review/[submissionId]/page.js"
+}
