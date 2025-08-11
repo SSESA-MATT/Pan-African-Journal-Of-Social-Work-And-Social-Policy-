@@ -85,7 +85,7 @@ export const submissionApi = {
   /**
    * Get submission by ID
    */
-  async getSubmissionById(id: string): Promise<{ submission: Submission }> {
+  async getSubmissionById(id: string): Promise<{ submission: SubmissionWithAuthor }> {
     const response = await fetch(`${API_BASE_URL}/submissions/${id}`, {
       method: 'GET',
       headers: {

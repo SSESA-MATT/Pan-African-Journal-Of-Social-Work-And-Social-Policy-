@@ -37,6 +37,29 @@ export class SubmissionService {
   }
 
   /**
+   * Get submission with author details by ID
+   */
+  async getSubmissionWithAuthor(id: string): Promise<any> {
+    const submission = await this.submissionRepository.findById(id);
+    if (!submission) {
+      return null;
+    }
+
+    const author = await this.userRepository.findById(submission.author_id);
+    if (!author) {
+      return submission; // Return submission without author details if author not found
+    }
+
+    return {
+      ...submission,
+      first_name: author.first_name,
+      last_name: author.last_name,
+      email: author.email,
+      affiliation: author.affiliation || ''
+    };
+  }
+
+  /**
    * Get submissions by author with pagination
    */
   async getSubmissionsByAuthor(

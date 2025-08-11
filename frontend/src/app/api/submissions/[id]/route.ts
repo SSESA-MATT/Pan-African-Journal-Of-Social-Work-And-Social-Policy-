@@ -24,8 +24,11 @@ export async function GET(
     if (submission.author_id !== user.id && !['admin', 'editor'].includes(user.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
+    // Get author details for the submission
+    const submissionWithAuthor = await submissionService.getSubmissionWithAuthor(params.id);
     
-    return NextResponse.json(submission);
+    return NextResponse.json({ submission: submissionWithAuthor });
   } catch (error: any) {
     console.error('Get submission error:', error);
     return NextResponse.json(

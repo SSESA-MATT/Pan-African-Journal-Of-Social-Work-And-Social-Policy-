@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { reviewApi } from '../lib/reviewApi';
 import { submissionApi } from '../lib/submissionApi';
 import { RecommendationType, RECOMMENDATION_LABELS } from '../types/review';
+import { SubmissionWithAuthor } from '../types/submission';
 
 interface ReviewFormProps {
   submissionId: string;
@@ -11,20 +12,8 @@ interface ReviewFormProps {
   onCancel?: () => void;
 }
 
-interface SubmissionDetails {
-  id: string;
-  title: string;
-  abstract: string;
-  keywords: string[];
-  author_first_name: string;
-  author_last_name: string;
-  affiliation: string;
-  manuscript_url: string;
-  submitted_at: string;
-}
-
 export default function ReviewForm({ submissionId, onSubmitSuccess, onCancel }: ReviewFormProps) {
-  const [submission, setSubmission] = useState<SubmissionDetails | null>(null);
+  const [submission, setSubmission] = useState<SubmissionWithAuthor | null>(null);
   const [comments, setComments] = useState('');
   const [recommendation, setRecommendation] = useState<RecommendationType>('minor_revisions');
   const [loading, setLoading] = useState(true);
@@ -180,7 +169,7 @@ export default function ReviewForm({ submissionId, onSubmitSuccess, onCancel }: 
             <div>
               <p className="text-sm font-medium text-gray-700 mb-1">Author</p>
               <p className="text-gray-600">
-                {submission.author_first_name} {submission.author_last_name}
+                {submission.first_name} {submission.last_name}
               </p>
               <p className="text-sm text-gray-500">{submission.affiliation}</p>
             </div>
