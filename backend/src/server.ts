@@ -93,19 +93,25 @@ app.use('*', (req, res) => {
   });
 });
 
-app.listen(PORT, async () => {
-  console.log(`🚀 Africa Journal API server running on port ${PORT}`);
-  console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
-  
-  // Initialize email service
-  try {
-    const isEmailReady = await EmailService.verifyEmailConnection();
-    if (isEmailReady) {
-      console.log('📧 Email service initialized successfully');
-    } else {
-      console.warn('⚠️ Email service could not be initialized');
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, async () => {
+    console.log(`🚀 Africa Journal API server running on port ${PORT}`);
+    console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
+    
+    // Initialize email service
+    try {
+      const isEmailReady = await EmailService.verifyEmailConnection();
+      if (isEmailReady) {
+        console.log('📧 Email service initialized successfully');
+      } else {
+        console.warn('⚠️ Email service could not be initialized');
+      }
+    } catch (error) {
+      console.error('❌ Error initializing email service:', error);
     }
-  } catch (error) {
-    console.error('❌ Error initializing email service:', error);
-  }
-});
+  });
+}
+
+// Export app for Vercel
+export { app };

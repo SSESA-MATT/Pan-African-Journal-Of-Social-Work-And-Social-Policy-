@@ -3,8 +3,9 @@ export interface User {
   email: string;
   first_name: string;
   last_name: string;
-  affiliation: string;
+  affiliation?: string;
   role: 'author' | 'reviewer' | 'editor' | 'admin';
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
