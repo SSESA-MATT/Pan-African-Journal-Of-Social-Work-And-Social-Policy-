@@ -3,11 +3,5 @@
   "outputDirectory": "frontend/.next",
   "framework": "nextjs",
   "installCommand": "cd frontend && npm install",
-  "devCommand": "cd frontend && npm run dev",
-
-  "functions": {
-    "frontend/src/app/api/**/*.ts": {
-      "maxDuration": 30
-    }
-  }
+  "devCommand": "cd frontend && npm run dev"
 }
