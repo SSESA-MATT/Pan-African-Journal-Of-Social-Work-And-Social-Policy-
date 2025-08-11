@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { reviewApi } from '../lib/reviewApi';
 import { submissionApi } from '../lib/submissionApi';
 import { Reviewer } from '../types/review';
+import { SubmissionWithAuthor } from '../types/submission';
 
 interface ReviewerAssignmentProps {
   submissionId: string;
@@ -11,20 +12,12 @@ interface ReviewerAssignmentProps {
   onCancel?: () => void;
 }
 
-interface SubmissionDetails {
-  id: string;
-  title: string;
-  author_first_name: string;
-  author_last_name: string;
-  status: string;
-}
-
 export default function ReviewerAssignment({ 
   submissionId, 
   onAssignmentSuccess, 
   onCancel 
 }: ReviewerAssignmentProps) {
-  const [submission, setSubmission] = useState<SubmissionDetails | null>(null);
+  const [submission, setSubmission] = useState<SubmissionWithAuthor | null>(null);
   const [reviewers, setReviewers] = useState<Reviewer[]>([]);
   const [selectedReviewerId, setSelectedReviewerId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -134,7 +127,7 @@ export default function ReviewerAssignment({
             <span className="font-medium">Title:</span> {submission.title}
           </p>
           <p className="text-sm text-gray-600 mb-1">
-            <span className="font-medium">Author:</span> {submission.author_first_name} {submission.author_last_name}
+            <span className="font-medium">Author:</span> {submission.first_name} {submission.last_name}
           </p>
           <p className="text-sm text-gray-600">
             <span className="font-medium">Status:</span> 
