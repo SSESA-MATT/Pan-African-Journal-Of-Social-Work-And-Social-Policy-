@@ -1,45 +1,22 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/next"
-    },
-    {
-      "src": "backend/src/server.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "backend/src/**",
-          "backend/package.json",
-          "backend/tsconfig.json"
-        ]
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/backend/src/server.ts"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/frontend/$1"
-    }
-  ],
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/.next",
+  "framework": "nextjs",
+  "installCommand": "cd frontend && npm install",
+  "devCommand": "cd frontend && npm run dev",
   "env": {
     "SUPABASE_URL": "@supabase_url",
-    "SUPABASE_SERVICE_KEY": "@supabase_service_key",
+    "SUPABASE_SERVICE_KEY": "@supabase_service_key", 
+    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key",
     "CLOUDINARY_CLOUD_NAME": "@cloudinary_cloud_name",
     "CLOUDINARY_API_KEY": "@cloudinary_api_key",
     "CLOUDINARY_API_SECRET": "@cloudinary_api_secret",
-    "JWT_SECRET": "@jwt_secret"
+    "NEXT_PUBLIC_APP_URL": "@next_public_app_url"
   },
-  "build": {
-    "env": {
-      "NEXT_PUBLIC_API_URL": "https://your-app.vercel.app/api",
-      "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
-      "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key"
+  "functions": {
+    "frontend/src/app/api/**/*.ts": {
+      "maxDuration": 30
     }
   }
 }
