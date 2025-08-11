@@ -7,8 +7,7 @@ A comprehensive scholarly publishing platform designed to host and manage the Af
 ```plaintext
 africa-journal-platform/
 ├── frontend/          # Next.js React application
-├── backend/           # Express.js API server
-├── .kiro/            # Kiro IDE specifications
+├── backend/           # Express.js API server          
 └── README.md
 ```
 
