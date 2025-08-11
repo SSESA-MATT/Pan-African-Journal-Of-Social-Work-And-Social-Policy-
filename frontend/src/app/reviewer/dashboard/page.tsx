@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAuth } from '../../../components/AuthProvider';
-import ProtectedRoute from '../../../components/ProtectedRoute';
+import { ProtectedRoute } from '../../../components/ProtectedRoute';
 import ReviewerDashboard from '../../../components/ReviewerDashboard';
 
 export default function ReviewerDashboardPage() {

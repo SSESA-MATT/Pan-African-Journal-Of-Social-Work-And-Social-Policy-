@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import ProtectedRoute from '../../../../components/ProtectedRoute';
+import { ProtectedRoute } from '../../../../components/ProtectedRoute';
 import ReviewForm from '../../../../components/ReviewForm';
 
 export default function ReviewSubmissionPage() {
