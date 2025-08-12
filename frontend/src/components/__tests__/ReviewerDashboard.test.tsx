@@ -38,8 +38,8 @@ describe('ReviewerDashboard', () => {
           abstract: 'This is a test abstract for the submission.',
           status: 'under_review',
           submitted_at: '2024-01-01T00:00:00Z',
-          first_name: 'John',
-          last_name: 'Doe',
+          author_first_name: 'John',
+          author_last_name: 'Doe',
         },
       ],
       completedReviews: [
@@ -54,8 +54,8 @@ describe('ReviewerDashboard', () => {
           abstract: 'This is a completed submission abstract.',
           status: 'accepted',
           submission_date: '2023-12-01T00:00:00Z',
-          first_name: 'Jane',
-          last_name: 'Smith',
+          author_first_name: 'Jane',
+          author_last_name: 'Smith',
         },
       ],
       reviewStats: {
