@@ -13,7 +13,6 @@
     "start:backend": "cd backend && npm start"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
-    "next": "14.0.4"
+    "concurrently": "^8.2.2"
   }
 }

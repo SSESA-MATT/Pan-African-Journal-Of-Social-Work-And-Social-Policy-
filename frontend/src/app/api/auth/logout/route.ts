@@ -1,31 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService } from '@/lib/server/AuthService';
-
-const authService = new AuthService();
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Get the token from the Authorization header
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
-        { error: 'No token provided' },
+        { error: 'No authorization token provided' },
         { status: 401 }
       );
     }
-    
+
     const token = authHeader.substring(7);
-    await authService.logout(token);
+
+    // Sign out from Supabase Auth
+    const { error } = await supabase.auth.signOut();
     
-    return NextResponse.json(
-      { message: 'Logged out successfully' },
-      { status: 200 }
-    );
-  } catch (error: any) {
+    if (error) {
+      console.error('Logout error:', error);
+      // Don't fail the logout if Supabase signout fails
+    }
+
+    return NextResponse.json({
+      message: 'Logout successful'
+    });
+
+  } catch (error) {
     console.error('Logout error:', error);
-    
     return NextResponse.json(
-      { error: 'Logout failed' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
