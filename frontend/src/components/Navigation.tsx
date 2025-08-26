@@ -29,7 +29,7 @@ export const Navigation: React.FC = () => {
                 <div className="w-2 h-2 bg-white rounded-full"></div>
               </div>
               <h1 className="text-xl font-bold text-white">
-                <span className="text-accent-green">Pan African</span> Journal
+                <span className="text-accent-green">Pan African</span> Journal Of Social Work And Social Policy
               </h1>
             </Link>
             
@@ -42,16 +42,16 @@ export const Navigation: React.FC = () => {
                 Home
               </Link>
               <Link
-                href="/articles"
-                className="text-neutral-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors"
-              >
-                Articles
-              </Link>
-              <Link
                 href="/about"
                 className="text-neutral-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors"
               >
                 About
+              </Link>
+              <Link
+                href="/articles"
+                className="text-neutral-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors"
+              >
+                Articles
               </Link>
               <Link
                 href="/contact"
@@ -203,18 +203,18 @@ export const Navigation: React.FC = () => {
               Home
             </Link>
             <Link
-              href="/articles"
-              className="block text-neutral-300 hover:text-white px-3 py-2 text-base font-medium transition-colors"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Articles
-            </Link>
-            <Link
               href="/about"
               className="block text-neutral-300 hover:text-white px-3 py-2 text-base font-medium transition-colors"
               onClick={() => setIsMenuOpen(false)}
             >
               About
+            </Link>
+            <Link
+              href="/articles"
+              className="block text-neutral-300 hover:text-white px-3 py-2 text-base font-medium transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Articles
             </Link>
             <Link
               href="/contact"

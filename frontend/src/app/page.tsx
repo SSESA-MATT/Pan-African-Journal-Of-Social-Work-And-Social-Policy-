@@ -96,7 +96,7 @@ export default function Home() {
                   href="/register"
                   className="inline-flex items-center px-8 py-4 bg-accent-red text-white font-semibold rounded-lg hover:bg-accent-red/80 transition-colors shadow-lg text-lg"
                 >
-                  Submit Your Research
+                  Submit Your Article
                 </Link>
               )}
               

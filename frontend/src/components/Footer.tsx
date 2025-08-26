@@ -81,7 +81,7 @@ export const Footer: React.FC = () => {
           <div className="lg:col-span-2">
             <div className="mb-6">
               <h3 className="text-2xl font-bold mb-4">
-                Africa Journal of Social Work and Social Policy
+                African Journal of Social Work and Social Policy
               </h3>
               <p className="text-neutral-300 leading-relaxed mb-4">
                 Promoting Indigenous African knowledge systems and decolonial social work methodologies 
@@ -215,7 +215,7 @@ export const Footer: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="text-neutral-400 text-sm mb-4 md:mb-0">
               <p>
-                © {currentYear} Africa Journal of Social Work and Social Policy. All rights reserved.
+                © {currentYear} African Journal of Social Work and Social Policy. All rights reserved.
               </p>
               <p className="mt-1">
                 Published under{' '}
