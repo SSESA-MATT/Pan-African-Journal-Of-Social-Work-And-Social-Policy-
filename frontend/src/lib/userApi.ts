@@ -1,7 +1,8 @@
 import { User } from '@/types/auth';
 import { UpdateUserRequest, CreateUserRequest, UserStats, UsersResponse, ApiResponse } from '@/types/user';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+// Use Next.js API routes instead of external backend
+const API_BASE_URL = '/api';
 
 class UserApiService {
   private getAuthHeaders(): HeadersInit {

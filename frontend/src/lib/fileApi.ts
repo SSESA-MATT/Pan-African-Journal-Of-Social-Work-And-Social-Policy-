@@ -7,11 +7,12 @@ import {
   FileUploadProgress,
 } from '../types/file';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+// Use Next.js API routes instead of external backend
+const API_BASE_URL = '';
 
 // Create axios instance with auth interceptor
 const fileApi = axios.create({
-  baseURL: `${API_BASE_URL}/api/files`,
+  baseURL: `/api/files`,
 });
 
 // Add auth token to requests
