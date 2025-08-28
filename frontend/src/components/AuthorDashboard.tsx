@@ -1,98 +1,467 @@
 'use client';
 
-import React, { useState } from 'react';
-import { SubmissionForm } from './SubmissionForm';
-import { SubmissionList } from './SubmissionList';
-import { SubmissionStatus } from './SubmissionStatus';
-import { FileUpload } from './FileUpload';
-import { MessagingCenter } from './MessagingCenter';
-import { Submission } from '../types/submission';
-import { submissionApi } from '../lib/submissionApi';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../AuthProvider';
+import { 
+  getUserManuscripts, 
+  getManuscriptById, 
+  deleteManuscript, 
+  updateManuscriptStatus 
+} from '../../lib/manuscriptApi';
+import { Manuscript } from '../../types/manuscript';
+import ManuscriptSubmissionForm from './ManuscriptSubmissionForm';
 
 interface AuthorDashboardProps {
-  user: {
-    id: string;
-    role: string;
-    first_name: string;
-    last_name: string;
-  };
+  onViewManuscript?: (manuscript: Manuscript) => void;
 }
 
-export const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<'submissions' | 'new-submission' | 'messages'>('submissions');
-  const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
-  const [showRevisionUpload, setShowRevisionUpload] = useState(false);
-  const [revisionUploadError, setRevisionUploadError] = useState<string>('');
-  const [revisionUploadSuccess, setRevisionUploadSuccess] = useState(false);
+const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) => {
+  const { user } = useAuth();
+  const [manuscripts, setManuscripts] = useState<Manuscript[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'overview' | 'new-submission' | 'manuscripts'>('overview');
+  const [selectedManuscript, setSelectedManuscript] = useState<Manuscript | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmissionSuccess = (submissionId: string) => {
-    // Switch back to submissions tab and refresh the list
-    setActiveTab('submissions');
-    // The SubmissionList component will automatically refresh
-  };
+  useEffect(() => {
+    if (user?.id) {
+      loadManuscripts();
+    }
+  }, [user]);
 
-  const handleSubmissionClick = (submission: Submission) => {
-    setSelectedSubmission(submission);
-  };
-
-  const handleBackToList = () => {
-    setSelectedSubmission(null);
-    setShowRevisionUpload(false);
-    setRevisionUploadError('');
-    setRevisionUploadSuccess(false);
-  };
-
-  const handleRevisionUpload = async (file: any) => {
-    if (!selectedSubmission) return;
-    
+  const loadManuscripts = async () => {
     try {
-      setRevisionUploadError('');
-      await submissionApi.uploadRevision(selectedSubmission.id, file.file);
-      setRevisionUploadSuccess(true);
-      setShowRevisionUpload(false);
-      // Refresh the submission data
-      // In a real app, you'd want to refetch the submission data here
-    } catch (error: any) {
-      setRevisionUploadError(error.message || 'Failed to upload revision');
+      setLoading(true);
+      const userManuscripts = await getUserManuscripts(user!.id);
+      setManuscripts(userManuscripts);
+    } catch (err) {
+      setError('Failed to load manuscripts');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (selectedSubmission) {
+  const handleDeleteManuscript = async (manuscriptId: string) => {
+    if (!confirm('Are you sure you want to delete this manuscript?')) return;
+    
+    try {
+      await deleteManuscript(manuscriptId);
+      setManuscripts(prev => prev.filter(m => m.id !== manuscriptId));
+    } catch (err) {
+      setError('Failed to delete manuscript');
+      console.error(err);
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'draft': return 'bg-gray-100 text-gray-800';
+      case 'submitted': return 'bg-blue-100 text-blue-800';
+      case 'under-review': return 'bg-yellow-100 text-yellow-800';
+      case 'awaiting-revision': return 'bg-orange-100 text-orange-800';
+      case 'revised-submitted': return 'bg-purple-100 text-purple-800';
+      case 'accepted': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'published': return 'bg-emerald-100 text-emerald-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    return status.split('-').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+  };
+
+  const manuscriptStats = {
+    total: manuscripts.length,
+    draft: manuscripts.filter(m => m.status === 'draft').length,
+    submitted: manuscripts.filter(m => m.status === 'submitted').length,
+    underReview: manuscripts.filter(m => m.status === 'under-review').length,
+    accepted: manuscripts.filter(m => m.status === 'accepted').length,
+    published: manuscripts.filter(m => m.status === 'published').length,
+  };
+
+  if (!user || user.role !== 'author') {
     return (
-      <div className="max-w-6xl mx-auto p-4 md:p-6">
-        {/* Back Navigation */}
-        <div className="mb-6">
-          <button
-            onClick={handleBackToList}
-            className="flex items-center text-secondary-600 hover:text-secondary-700 transition-colors"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Submissions
-          </button>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900">Access Denied</h2>
+          <p className="mt-2 text-gray-600">You need author permissions to access this dashboard.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Author Dashboard</h1>
+          <p className="mt-2 text-gray-600">Welcome back, {user.first_name}! Manage your manuscripts and submissions.</p>
         </div>
 
-        {/* Submission Detail Card */}
-        <div className="bg-white rounded-lg shadow-lg border border-neutral-200 overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-neutral-900 to-neutral-800 text-white p-6">
-            <h1 className="text-2xl md:text-3xl font-bold mb-3">{selectedSubmission.title}</h1>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-2 sm:space-y-0">
-              <span className="text-neutral-200 text-sm">
-                Submitted: {new Date(selectedSubmission.submitted_at).toLocaleDateString()}
-              </span>
-              <div className="flex items-center">
-                <SubmissionStatus status={selectedSubmission.status} />
+        {/* Navigation Tabs */}
+        <div className="border-b border-gray-200 mb-8">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'overview'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('manuscripts')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'manuscripts'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              My Manuscripts
+            </button>
+            <button
+              onClick={() => setActiveTab('new-submission')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'new-submission'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              New Submission
+            </button>
+          </nav>
+        </div>
+
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{error}</p>
+                </div>
               </div>
             </div>
           </div>
+        )}
 
-          {/* Content */}
-          <div className="p-6 space-y-8">
-            {/* Abstract */}
-            <div>
-              <h3 className="text-lg font-semibold text-neutral-900 mb-3 border-b border-neutral-200 pb-2">
+        {/* Tab Content */}
+        {activeTab === 'overview' && (
+          <div className="space-y-8">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                        <span className="text-white font-semibold">{manuscriptStats.total}</span>
+                      </div>
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Total Manuscripts</dt>
+                        <dd className="text-lg font-medium text-gray-900">{manuscriptStats.total}</dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                        <span className="text-white font-semibold">{manuscriptStats.underReview}</span>
+                      </div>
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Under Review</dt>
+                        <dd className="text-lg font-medium text-gray-900">{manuscriptStats.underReview}</dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                        <span className="text-white font-semibold">{manuscriptStats.accepted}</span>
+                      </div>
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Accepted</dt>
+                        <dd className="text-lg font-medium text-gray-900">{manuscriptStats.accepted}</dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-emerald-500 rounded-md flex items-center justify-center">
+                        <span className="text-white font-semibold">{manuscriptStats.published}</span>
+                      </div>
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Published</dt>
+                        <dd className="text-lg font-medium text-gray-900">{manuscriptStats.published}</dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Manuscripts */}
+            <div className="bg-white shadow overflow-hidden sm:rounded-md">
+              <div className="px-4 py-5 sm:px-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">Recent Manuscripts</h3>
+                <p className="mt-1 max-w-2xl text-sm text-gray-500">Your latest manuscript submissions and updates.</p>
+              </div>
+              <ul className="divide-y divide-gray-200">
+                {manuscripts.slice(0, 5).map((manuscript) => (
+                  <li key={manuscript.id}>
+                    <div className="px-4 py-4 flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="ml-4">
+                          <div className="flex items-center">
+                            <p className="text-sm font-medium text-gray-900 truncate max-w-md">
+                              {manuscript.title}
+                            </p>
+                            <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(manuscript.status)}`}>
+                              {getStatusText(manuscript.status)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500">
+                            Last updated: {new Date(manuscript.last_updated).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('manuscripts')}
+                        className="text-blue-600 hover:text-blue-500 text-sm font-medium"
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {manuscripts.length === 0 && (
+                <div className="px-4 py-12 text-center">
+                  <p className="text-gray-500">No manuscripts yet. Start by creating your first submission!</p>
+                  <button
+                    onClick={() => setActiveTab('new-submission')}
+                    className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    Create New Manuscript
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'manuscripts' && (
+          <div className="bg-white shadow overflow-hidden sm:rounded-md">
+            <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg leading-6 font-medium text-gray-900">All Manuscripts</h3>
+                <p className="mt-1 max-w-2xl text-sm text-gray-500">Manage all your manuscript submissions.</p>
+              </div>
+              <button
+                onClick={() => setActiveTab('new-submission')}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+              >
+                New Submission
+              </button>
+            </div>
+            
+            {loading ? (
+              <div className="px-4 py-12 text-center">
+                <p className="text-gray-500">Loading manuscripts...</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-200">
+                {manuscripts.map((manuscript) => (
+                  <li key={manuscript.id}>
+                    <div className="px-4 py-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-lg font-medium text-gray-900">{manuscript.title}</h4>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(manuscript.status)}`}>
+                              {getStatusText(manuscript.status)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1">{manuscript.abstract.substring(0, 200)}...</p>
+                          <div className="mt-2 flex items-center text-sm text-gray-500">
+                            <span>Submitted: {new Date(manuscript.submission_date).toLocaleDateString()}</span>
+                            <span className="mx-2">•</span>
+                            <span>Authors: {manuscript.authors.join(', ')}</span>
+                            {manuscript.assigned_reviewers && manuscript.assigned_reviewers.length > 0 && (
+                              <>
+                                <span className="mx-2">•</span>
+                                <span>Reviewers: {manuscript.assigned_reviewers.length}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex space-x-2 ml-4">
+                          <button
+                            onClick={() => setSelectedManuscript(manuscript)}
+                            className="text-blue-600 hover:text-blue-500 text-sm font-medium"
+                          >
+                            View
+                          </button>
+                          {manuscript.status === 'draft' && (
+                            <>
+                              <button
+                                onClick={() => {/* TODO: Open edit form */}}
+                                className="text-gray-600 hover:text-gray-500 text-sm font-medium"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteManuscript(manuscript.id)}
+                                className="text-red-600 hover:text-red-500 text-sm font-medium"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            
+            {manuscripts.length === 0 && !loading && (
+              <div className="px-4 py-12 text-center">
+                <p className="text-gray-500">No manuscripts found.</p>
+                <button
+                  onClick={() => setActiveTab('new-submission')}
+                  className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  Create Your First Manuscript
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'new-submission' && (
+          <ManuscriptSubmissionForm 
+            onSubmissionComplete={() => {
+              loadManuscripts();
+              setActiveTab('manuscripts');
+            }}
+          />
+        )}
+      </div>
+
+      {/* Manuscript Detail Modal */}
+      {selectedManuscript && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" onClick={() => setSelectedManuscript(null)}>
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="w-full">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-lg leading-6 font-medium text-gray-900">
+                        {selectedManuscript.title}
+                      </h3>
+                      <button
+                        onClick={() => setSelectedManuscript(null)}
+                        className="text-gray-400 hover:text-gray-500"
+                      >
+                        <span className="text-2xl">&times;</span>
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(selectedManuscript.status)}`}>
+                          {getStatusText(selectedManuscript.status)}
+                        </span>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-medium text-gray-900">Abstract</h4>
+                        <p className="text-gray-700 mt-1">{selectedManuscript.abstract}</p>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-medium text-gray-900">Authors</h4>
+                        <p className="text-gray-700 mt-1">{selectedManuscript.authors.join(', ')}</p>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-medium text-gray-900">Keywords</h4>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {selectedManuscript.keywords.map((keyword, index) => (
+                            <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              {keyword}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-medium text-gray-900">Submission Details</h4>
+                        <dl className="mt-1 text-sm text-gray-600">
+                          <div className="flex justify-between py-1">
+                            <dt>Submitted:</dt>
+                            <dd>{new Date(selectedManuscript.submission_date).toLocaleDateString()}</dd>
+                          </div>
+                          <div className="flex justify-between py-1">
+                            <dt>Last Updated:</dt>
+                            <dd>{new Date(selectedManuscript.last_updated).toLocaleDateString()}</dd>
+                          </div>
+                          {selectedManuscript.assigned_reviewers && (
+                            <div className="flex justify-between py-1">
+                              <dt>Assigned Reviewers:</dt>
+                              <dd>{selectedManuscript.assigned_reviewers.length}</dd>
+                            </div>
+                          )}
+                        </dl>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export { AuthorDashboard };
+export default AuthorDashboard;
                 Abstract
               </h3>
               <p className="text-neutral-700 leading-relaxed">{selectedSubmission.abstract}</p>

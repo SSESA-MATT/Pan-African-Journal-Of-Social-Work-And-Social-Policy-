@@ -11,6 +11,7 @@ import userRoutes from './routes/users';
 import fileRoutes from './routes/files';
 import submissionRoutes from './routes/submissions';
 import reviewRoutes from './routes/reviews';
+import manuscriptRoutes from './routes/manuscripts';
 
 // Import services
 import { EmailService } from './services';
@@ -67,6 +68,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/manuscripts', manuscriptRoutes);
 
 // Catch-all for undefined API routes
 app.use('/api/*', (req, res) => {
