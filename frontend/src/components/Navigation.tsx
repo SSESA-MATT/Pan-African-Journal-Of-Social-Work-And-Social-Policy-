@@ -3,10 +3,12 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from './AuthProvider';
+import { JournalLogo } from './JournalLogo';
 
 export const Navigation: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -23,14 +25,7 @@ export const Navigation: React.FC = () => {
           {/* Logo and main navigation */}
           <div className="flex items-center">
             <Link href="/" className="flex-shrink-0 flex items-center">
-              <div className="flex items-center space-x-2 mr-3">
-                <div className="w-2 h-2 bg-accent-red rounded-full"></div>
-                <div className="w-3 h-3 bg-accent-green rounded-full"></div>
-                <div className="w-2 h-2 bg-white rounded-full"></div>
-              </div>
-              <h1 className="text-xl font-bold text-white">
-                <span className="text-accent-green">Pan African</span> Journal Of Social Work And Social Policy
-              </h1>
+              <JournalLogo />
             </Link>
             
             {/* Desktop navigation */}
@@ -53,6 +48,80 @@ export const Navigation: React.FC = () => {
               >
                 Articles
               </Link>
+              
+              {/* Guidelines Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsGuidelinesOpen(!isGuidelinesOpen)}
+                  className="flex items-center text-neutral-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors"
+                  onBlur={() => setTimeout(() => setIsGuidelinesOpen(false), 200)}
+                >
+                  Guidelines
+                  <svg
+                    className={`w-4 h-4 ml-1 transition-transform ${isGuidelinesOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {/* Guidelines Dropdown Menu */}
+                {isGuidelinesOpen && (
+                  <div className="absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-50 border border-neutral-200">
+                    <Link
+                      href="/guidelines/authors"
+                      className="block px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100 transition-colors"
+                      onClick={() => setIsGuidelinesOpen(false)}
+                    >
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Author Guidelines
+                      </div>
+                    </Link>
+                    <Link
+                      href="/guidelines/reviewers"
+                      className="block px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100 transition-colors"
+                      onClick={() => setIsGuidelinesOpen(false)}
+                    >
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        Reviewer Guidelines
+                      </div>
+                    </Link>
+                    <Link
+                      href="/guidelines/editorial"
+                      className="block px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100 transition-colors"
+                      onClick={() => setIsGuidelinesOpen(false)}
+                    >
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        Editorial Guidelines
+                      </div>
+                    </Link>
+                    <Link
+                      href="/guidelines/ethics"
+                      className="block px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100 transition-colors"
+                      onClick={() => setIsGuidelinesOpen(false)}
+                    >
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Publication Ethics
+                      </div>
+                    </Link>
+                  </div>
+                )}
+              </div>
+              
               <Link
                 href="/contact"
                 className="text-neutral-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors"
@@ -216,6 +285,49 @@ export const Navigation: React.FC = () => {
             >
               Articles
             </Link>
+            
+            {/* Mobile Guidelines section */}
+            <div className="px-3 py-2">
+              <div className="text-neutral-300 text-base font-medium mb-2">Guidelines</div>
+              <div className="pl-4 space-y-1">
+                <Link
+                  href="/guidelines/authors"
+                  className="block text-neutral-400 hover:text-white px-3 py-2 text-sm transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Author Guidelines
+                </Link>
+                <Link
+                  href="/guidelines/reviewers"
+                  className="block text-neutral-400 hover:text-white px-3 py-2 text-sm transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Reviewer Guidelines
+                </Link>
+                <Link
+                  href="/guidelines/editorial"
+                  className="block text-neutral-400 hover:text-white px-3 py-2 text-sm transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Editorial Guidelines
+                </Link>
+                <Link
+                  href="/guidelines/ethics"
+                  className="block text-neutral-400 hover:text-white px-3 py-2 text-sm transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Publication Ethics
+                </Link>
+                <Link
+                  href="/guidelines/submission"
+                  className="block text-neutral-400 hover:text-white px-3 py-2 text-sm transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Submission Process
+                </Link>
+              </div>
+            </div>
+            
             <Link
               href="/contact"
               className="block text-neutral-300 hover:text-white px-3 py-2 text-base font-medium transition-colors"
