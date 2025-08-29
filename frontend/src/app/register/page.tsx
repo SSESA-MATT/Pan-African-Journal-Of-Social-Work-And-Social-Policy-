@@ -19,6 +19,7 @@ export default function RegisterPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const { register } = useAuth();
   const router = useRouter();
 
@@ -26,6 +27,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess('');
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
@@ -42,16 +44,47 @@ export default function RegisterPage() {
     }
 
     try {
-      await register({
-        email: formData.email,
-        password: formData.password,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        affiliation: formData.affiliation,
-        role: formData.role as 'author' | 'reviewer'
+      // Use direct registration for immediate testing
+      const response = await fetch('/api/auth/register-direct', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          affiliation: formData.affiliation,
+          role: formData.role
+        }),
       });
-      router.push('/'); // Redirect to homepage after successful registration
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Registration failed');
+      }
+
+      setSuccess('Registration successful! You can now log in with your email and password.');
+      
+      // Clear the form
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        affiliation: '',
+        role: 'author',
+        expertise: [],
+        bio: ''
+      });
+      
+      // Redirect to login after 3 seconds
+      setTimeout(() => router.push('/login'), 3000);
     } catch (err) {
+      console.error('Registration error:', err);
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
       setLoading(false);
@@ -96,6 +129,12 @@ export default function RegisterPage() {
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
                 {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
+                {success}
               </div>
             )}
 
