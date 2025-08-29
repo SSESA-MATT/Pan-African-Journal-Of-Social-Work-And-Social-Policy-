@@ -14,6 +14,9 @@ export interface Manuscript {
   reviews?: Review[];
   files?: ManuscriptFile[];
   metadata?: ManuscriptMetadata;
+  editor_comments?: string;
+  word_count?: number;
+  manuscript_url?: string;
 }
 
 export interface ManuscriptMetadata {

@@ -14,7 +14,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
 
     const manuscriptData = {
       ...req.body,
-      author_id: req.user.id,
+      author_id: req.user.userId,
       status: 'draft',
       submission_date: new Date().toISOString(),
       last_updated: new Date().toISOString(),
@@ -32,7 +32,7 @@ router.get('/user/:userId', authenticate, async (req: Request, res: Response) =>
   try {
     const { userId } = req.params;
     
-    if (!req.user || (req.user.id !== userId && !['admin', 'editor'].includes(req.user.role))) {
+    if (!req.user || (req.user.userId !== userId && !['admin', 'editor'].includes(req.user.role))) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -55,9 +55,9 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
 
     // Check permissions
     if (!req.user || (
-      manuscript.author_id !== req.user.id && 
+      manuscript.author_id !== req.user.userId && 
       !['admin', 'editor', 'reviewer'].includes(req.user.role) &&
-      !(req.user.role === 'reviewer' && manuscript.assigned_reviewers?.includes(req.user.id))
+      !(req.user.role === 'reviewer' && manuscript.assigned_reviewers?.includes(req.user.userId))
     )) {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -79,7 +79,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response) => {
     }
 
     // Check permissions - only author can edit their own manuscript in draft status
-    if (!req.user || manuscript.author_id !== req.user.id) {
+    if (!req.user || manuscript.author_id !== req.user.userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -100,7 +100,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/:id', auth, async (req: Request, res: Response) => {
+router.delete('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const manuscript = await manuscriptRepo.findById(id);
@@ -110,7 +110,7 @@ router.delete('/:id', auth, async (req: Request, res: Response) => {
     }
 
     // Check permissions - only author can delete their own manuscript in draft status
-    if (!req.user || manuscript.author_id !== req.user.id) {
+    if (!req.user || manuscript.author_id !== req.user.userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -127,7 +127,7 @@ router.delete('/:id', auth, async (req: Request, res: Response) => {
 });
 
 // Admin/Editor routes
-router.get('/admin/all', auth, async (req: Request, res: Response) => {
+router.get('/admin/all', authenticate, async (req: Request, res: Response) => {
   try {
     if (!req.user || !['admin', 'editor'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Access denied' });
@@ -141,7 +141,7 @@ router.get('/admin/all', auth, async (req: Request, res: Response) => {
   }
 });
 
-router.post('/:id/assign-reviewer', auth, async (req: Request, res: Response) => {
+router.post('/:id/assign-reviewer', authenticate, async (req: Request, res: Response) => {
   try {
     if (!req.user || !['admin', 'editor'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Access denied' });
@@ -163,7 +163,7 @@ router.post('/:id/assign-reviewer', auth, async (req: Request, res: Response) =>
   }
 });
 
-router.put('/:id/status', auth, async (req: Request, res: Response) => {
+router.put('/:id/status', authenticate, async (req: Request, res: Response) => {
   try {
     if (!req.user || !['admin', 'editor'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Access denied' });
@@ -186,7 +186,7 @@ router.put('/:id/status', auth, async (req: Request, res: Response) => {
 });
 
 // File upload routes
-router.post('/upload', auth, async (req: Request, res: Response) => {
+router.post('/upload', authenticate, async (req: Request, res: Response) => {
   try {
     // TODO: Implement file upload logic
     res.status(501).json({ error: 'File upload not yet implemented' });
@@ -196,7 +196,7 @@ router.post('/upload', auth, async (req: Request, res: Response) => {
   }
 });
 
-router.get('/files/:fileId', auth, async (req: Request, res: Response) => {
+router.get('/files/:fileId', authenticate, async (req: Request, res: Response) => {
   try {
     // TODO: Implement file download logic
     res.status(501).json({ error: 'File download not yet implemented' });

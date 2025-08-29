@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useAuth } from '../AuthProvider';
-import { submitManuscript } from '../../lib/manuscriptApi';
-import { ManuscriptSubmissionRequest } from '../../types/manuscript';
+import { useAuth } from './AuthProvider';
+import { submitManuscript } from '../lib/manuscriptApi';
+import { ManuscriptSubmissionRequest } from '../types/manuscript';
 
 interface SubmissionFormProps {
   onSubmissionComplete: () => void;
