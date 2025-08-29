@@ -7,6 +7,7 @@ In the Pan-African Journal manuscript management system, **becoming an admin req
 ## 🚀 **Method 1: Admin Role Assignment (Recommended)**
 
 ### **Prerequisites:**
+
 - ✅ Must have an existing user account
 - ✅ An existing admin must perform the role assignment
 - ✅ Admin access to the system
@@ -14,6 +15,7 @@ In the Pan-African Journal manuscript management system, **becoming an admin req
 ### **Step-by-Step Process:**
 
 #### **1. User Registration (If Not Already Registered)**
+
 1. **Go to**: `localhost:3000/register`
 2. **Fill out registration form**:
    - First Name & Last Name
@@ -25,6 +27,7 @@ In the Pan-African Journal manuscript management system, **becoming an admin req
 4. **Account created** with initial role
 
 #### **2. Admin Role Assignment via Dashboard**
+
 1. **Existing admin logs in** to `localhost:3000/admin`
 2. **Navigates to User Management** section
 3. **Finds the user** to be promoted
@@ -32,6 +35,7 @@ In the Pan-African Journal manuscript management system, **becoming an admin req
 5. **Saves changes**
 
 #### **3. API-Based Role Update**
+
 ```http
 PUT /api/users/{user-id}/role
 Authorization: Bearer {admin-token}
@@ -47,6 +51,7 @@ Content-Type: application/json
 ### **For System Administrators:**
 
 #### **Option A: Supabase Dashboard**
+
 1. **Login to Supabase** dashboard
 2. **Navigate to Table Editor** → `users` table
 3. **Find the user** by email/ID
@@ -55,6 +60,7 @@ Content-Type: application/json
 6. **Save changes**
 
 #### **Option B: SQL Command**
+
 ```sql
 -- Update user role to admin
 UPDATE users 
@@ -102,7 +108,8 @@ INSERT INTO users (
 ## 🎭 **Method 4: Role Hierarchy & Promotion Path**
 
 ### **Typical Progression:**
-```
+
+```text
 Author → Reviewer → Editor → Admin
    ↓        ↓         ↓        ↓
  Basic   Review    Editorial  Full
@@ -111,6 +118,7 @@ Access   Tasks    Control   System
 ```
 
 ### **Role Capabilities:**
+
 - **Author**: Submit manuscripts, view own submissions
 - **Reviewer**: Review assigned manuscripts + Author capabilities  
 - **Editor**: Manage review process + Reviewer capabilities
@@ -119,6 +127,7 @@ Access   Tasks    Control   System
 ## 🔐 **Who Can Assign Admin Roles?**
 
 ### **Current System Permissions:**
+
 - ✅ **Existing Admins**: Can promote any user to admin
 - ✅ **System Database Admin**: Direct database access
 - ❌ **Editors**: Cannot create admins (only manage reviews)
@@ -130,11 +139,13 @@ Access   Tasks    Control   System
 ### **How to Confirm Admin Status:**
 
 #### **Method 1: Login Check**
+
 1. **Login** to the system
 2. **Check navigation menu** - Should show "Admin Dashboard"
 3. **Access** `localhost:3000/admin` - Should work without errors
 
 #### **Method 2: Database Verification**
+
 ```sql
 SELECT email, first_name, last_name, role, created_at 
 FROM users 
@@ -143,15 +154,18 @@ ORDER BY created_at;
 ```
 
 #### **Method 3: API Check**
+
 ```http
 GET /api/users/profile
 Authorization: Bearer {user-token}
 ```
+
 Response should show `"role": "admin"`
 
 ## 🚨 **Security Considerations**
 
 ### **Admin Role Security:**
+
 - ✅ **Role validation** on all admin endpoints
 - ✅ **JWT token verification** required
 - ✅ **Database constraints** prevent invalid roles
@@ -159,6 +173,7 @@ Response should show `"role": "admin"`
 - ✅ **Protected routes** restrict access
 
 ### **Best Practices:**
+
 1. **Limit admin accounts** to necessary personnel only
 2. **Use strong passwords** for admin accounts
 3. **Regular access review** - Remove unused admin access
@@ -168,6 +183,7 @@ Response should show `"role": "admin"`
 ## 🎯 **Quick Setup for Development/Testing**
 
 ### **Create Test Admin Account:**
+
 1. **Register** normal account at `localhost:3000/register`
 2. **Open Supabase** dashboard
 3. **Go to users table** → Find your account
@@ -177,6 +193,7 @@ Response should show `"role": "admin"`
 ## 📧 **Admin Account Request Process**
 
 ### **For Production Systems:**
+
 1. **User submits request** to existing admin
 2. **Admin evaluates** user's need for admin access
 3. **Admin assigns role** through dashboard/database
