@@ -1,6 +1,7 @@
 # 🔄 Supabase Database Updates Required
 
 ## 📋 **Overview**
+
 Based on the advanced features we've added to the manuscript management system, several database enhancements are needed to support:
 
 - Advanced reviewer assignment with expertise matching
@@ -12,15 +13,18 @@ Based on the advanced features we've added to the manuscript management system, 
 ## 🚀 **Quick Setup Instructions**
 
 ### **Step 1: Run the Schema Updates**
+
 1. Open your **Supabase Dashboard** at [supabase.com](https://supabase.com)
 2. Navigate to your project → **SQL Editor**
 3. Copy and paste the contents of `backend/src/database/schema_updates.sql`
 4. Click **Run** to execute all the updates
 
 ### **Step 2: Verify Tables Created**
+
 After running the updates, verify these new tables exist:
+
 - ✅ `reviewer_expertise`
-- ✅ `reviewer_profiles` 
+- ✅ `reviewer_profiles`
 - ✅ `manuscript_workflow_history`
 - ✅ `review_invitations`
 - ✅ `messages`
@@ -30,22 +34,26 @@ After running the updates, verify these new tables exist:
 ## 📊 **New Database Features**
 
 ### **🎯 Advanced Reviewer Assignment**
+
 - **Expertise matching**: Reviewers tagged with specialization areas
 - **Availability tracking**: Real-time reviewer workload management
 - **Performance metrics**: Average review time, completion rates
 - **Smart matching**: AI-powered reviewer recommendations based on manuscript keywords
 
 ### **📨 Communication System**
+
 - **Internal messaging**: Direct communication between authors, reviewers, editors
 - **Manuscript-specific threads**: Organized conversations per submission
 - **Notification tracking**: Read/unread status, message types
 
-### **🔍 Workflow Tracking** 
+### **🔍 Workflow Tracking**
+
 - **Audit trail**: Complete history of status changes and actions
 - **Action logging**: Track who did what and when
 - **Decision tracking**: Record editorial decisions and reasoning
 
 ### **📈 Analytics & Reporting**
+
 - **Performance dashboards**: Review turnaround times, acceptance rates
 - **System metrics**: Usage statistics, user activity
 - **Journal insights**: Submission trends, geographic distribution

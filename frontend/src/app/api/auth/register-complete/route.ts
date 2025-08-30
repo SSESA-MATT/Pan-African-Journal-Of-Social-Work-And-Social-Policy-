@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password, first_name, last_name, affiliation, role } = body;
 
-    console.log('Instant registration attempt:', { email, first_name, last_name, role });
+    console.log('Complete registration attempt:', { email, first_name, last_name, role });
 
     // Validate required fields
     if (!email || !password || !first_name || !last_name) {
@@ -24,8 +25,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use admin client to create user with confirmed email
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    // Step 1: Create user with admin client (auto-confirmed)
+    const { data: adminUserData, error: adminError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true, // Auto-confirm email
@@ -37,30 +38,30 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    if (authError) {
-      console.error('Supabase admin auth error:', authError);
+    if (adminError) {
+      console.error('Admin user creation error:', adminError);
       return NextResponse.json(
-        { error: authError.message },
+        { error: adminError.message },
         { status: 400 }
       );
     }
 
-    if (!authData.user) {
+    if (!adminUserData.user) {
       return NextResponse.json(
         { error: 'Failed to create user account' },
         { status: 500 }
       );
     }
 
-    console.log('User created with admin client:', authData.user.id);
+    console.log('User created with admin:', adminUserData.user.id);
 
-    // Create user profile in our users table using admin client
+    // Step 2: Create user profile in our users table
     const { error: profileError } = await supabaseAdmin
       .from('users')
       .insert([
         {
-          id: authData.user.id,
-          email: authData.user.email,
+          id: adminUserData.user.id,
+          email: adminUserData.user.email,
           first_name,
           last_name,
           affiliation: affiliation || '',
@@ -70,26 +71,51 @@ export async function POST(request: NextRequest) {
 
     if (profileError) {
       console.error('Profile creation error:', profileError);
-      // Continue - user was created in auth
     }
 
-    // Return success with user data
+    // Step 3: Sign in the user to get a proper session
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (signInError) {
+      console.error('Auto sign-in error:', signInError);
+      // User was created but couldn't sign in - they can login manually
+      return NextResponse.json({
+        message: 'Registration successful! Please log in with your credentials.',
+        user: {
+          id: adminUserData.user.id,
+          email: adminUserData.user.email!,
+          first_name,
+          last_name,
+          affiliation: affiliation || '',
+          role: role || 'author',
+          email_confirmed: true
+        },
+        needsManualLogin: true
+      });
+    }
+
+    // Step 4: Return success with session data
     return NextResponse.json({
-      message: 'Registration successful! Please log in with your credentials.',
+      message: 'Registration and login successful!',
       user: {
-        id: authData.user.id,
-        email: authData.user.email!,
+        id: signInData.user.id,
+        email: signInData.user.email!,
         first_name,
         last_name,
         affiliation: affiliation || '',
         role: role || 'author',
         email_confirmed: true
       },
-      needsEmailConfirmation: false
+      token: signInData.session.access_token,
+      refresh_token: signInData.session.refresh_token,
+      autoLoggedIn: true
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('Complete registration error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

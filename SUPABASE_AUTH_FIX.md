@@ -8,19 +8,21 @@ When users register and receive email confirmation, the links point to `localhos
 
 ### **Step 1: Update Supabase Dashboard Configuration**
 
-1. **Go to Supabase Dashboard**: https://supabase.com/dashboard
+1. **Go to Supabase Dashboard**: <https://supabase.com/dashboard>
 2. **Select your project**
 3. **Navigate to**: Authentication → Settings → General
 4. **Update these settings**:
 
 #### **Site URL** (Main application URL)
-```
+
+```text
 Production: https://your-vercel-app.vercel.app
 Development: http://localhost:3000
 ```
 
 #### **Redirect URLs** (Add all valid redirect URLs)
-```
+
+```text
 https://your-vercel-app.vercel.app/auth/callback
 https://your-vercel-app.vercel.app/auth/confirm
 http://localhost:3000/auth/callback

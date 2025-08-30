@@ -46,8 +46,8 @@ export default function RegisterPage() {
     }
 
     try {
-      // Use instant registration for testing (bypasses email confirmation)
-      const response = await fetch('/api/auth/register-instant', {
+      // Use complete registration (creates user + auto-login)
+      const response = await fetch('/api/auth/register-complete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -71,8 +71,6 @@ export default function RegisterPage() {
       const roleName = getRoleName(formData.role as any);
       const dashboardRoute = getDashboardRoute(formData.role as any);
       
-      setSuccess(`Registration successful! Welcome ${roleName}. Redirecting to your dashboard...`);
-      
       // Clear the form
       setFormData({
         firstName: '',
@@ -85,32 +83,28 @@ export default function RegisterPage() {
         expertise: [],
         bio: ''
       });
-      
-      // If we got session data from registration, use it to log the user in immediately
-      if (result.token && result.user) {
-        // Store the auth data using the proper storage utility
-        try {
-          const authData = {
-            token: result.token,
-            refresh_token: result.refresh_token || '',
-            user: result.user
-          };
-          
-          // Store auth data using tokenStorage
-          tokenStorage.setAuthData(authData);
-          
-          // Redirect immediately to dashboard - the AuthProvider will pick up the stored data
-          setTimeout(() => {
-            window.location.href = dashboardRoute; // Force page refresh to pick up auth state
-          }, 1500);
-        } catch (error) {
-          console.error('Error storing auth data:', error);
-          // Fallback to manual login
-          setTimeout(() => router.push('/login?message=Please login to continue'), 3000);
-        }
+
+      if (result.autoLoggedIn && result.token) {
+        // User was auto-logged in, store session and redirect
+        setSuccess(`Registration successful! Welcome ${roleName}. Redirecting to your dashboard...`);
+        
+        // Store auth data
+        const authData = {
+          token: result.token,
+          refresh_token: result.refresh_token,
+          user: result.user
+        };
+        tokenStorage.setAuthData(authData);
+        
+        // Redirect to dashboard
+        setTimeout(() => {
+          window.location.href = dashboardRoute; // Force page refresh to ensure auth state is picked up
+        }, 2000);
+        
       } else {
-        // Fallback to manual login if no session data
-        setTimeout(() => router.push('/login?message=Please login to continue'), 3000);
+        // Manual login required
+        setSuccess(`Registration successful! Welcome ${roleName}. Please log in to continue.`);
+        setTimeout(() => router.push('/login?message=Please login with your new credentials'), 3000);
       }
     } catch (err) {
       console.error('Registration error:', err);
