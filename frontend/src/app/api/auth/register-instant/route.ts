@@ -58,7 +58,27 @@ export async function POST(request: NextRequest) {
 
     console.log('User created:', authData.user.id);
 
-    // For instant registration, we'll confirm the user's email automatically
+    // For instant registration, we need a proper session
+    // Let's try to sign the user in immediately after registration
+    let sessionData = authData.session;
+    
+    if (!sessionData) {
+      console.log('No session from signup, attempting immediate signin...');
+      // Try to sign in the user immediately with their credentials
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (signInError) {
+        console.error('Auto sign-in failed:', signInError);
+      } else {
+        sessionData = signInData.session;
+        console.log('Auto sign-in successful');
+      }
+    }
+
+    // Confirm email using admin client if needed
     if (authData.user && !authData.user.email_confirmed_at) {
       console.log('Auto-confirming user email...');
       
@@ -71,13 +91,11 @@ export async function POST(request: NextRequest) {
         
         if (confirmError) {
           console.error('Email confirmation error:', confirmError);
-          // Continue anyway - user is created
         } else {
           console.log('Email confirmed automatically');
         }
       } catch (confirmError) {
         console.error('Auto-confirm error:', confirmError);
-        // Continue anyway - user is created
       }
     }
 
@@ -100,7 +118,7 @@ export async function POST(request: NextRequest) {
       // Continue - user was created in auth
     }
 
-    // Return success - user can login immediately
+    // Return success with proper session data
     return NextResponse.json({
       message: 'Registration successful! You can now log in.',
       user: {
@@ -110,9 +128,13 @@ export async function POST(request: NextRequest) {
         last_name,
         affiliation: affiliation || '',
         role: role || 'author',
-        email_confirmed: true // Treated as confirmed
+        email_confirmed: true
       },
-      needsEmailConfirmation: false
+      needsEmailConfirmation: false,
+      // Include session data if available
+      token: sessionData?.access_token,
+      refresh_token: sessionData?.refresh_token,
+      session: sessionData
     });
 
   } catch (error) {

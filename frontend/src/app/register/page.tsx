@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthProvider';
 import { getDashboardRoute, getRoleName } from '@/lib/roleUtils';
+import { tokenStorage } from '@/lib/storage';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -70,7 +71,7 @@ export default function RegisterPage() {
       const roleName = getRoleName(formData.role as any);
       const dashboardRoute = getDashboardRoute(formData.role as any);
       
-      setSuccess(`Registration successful! Welcome ${roleName}. Logging you in...`);
+      setSuccess(`Registration successful! Welcome ${roleName}. Redirecting to your dashboard...`);
       
       // Clear the form
       setFormData({
@@ -85,15 +86,31 @@ export default function RegisterPage() {
         bio: ''
       });
       
-      // Auto-login the user after registration
-      try {
-        await login({ email: formData.email, password: formData.password });
-        // Redirect to appropriate dashboard after 2 seconds
-        setTimeout(() => router.push(dashboardRoute), 2000);
-      } catch (loginError) {
-        // If auto-login fails, redirect to login page
-        setSuccess(`${roleName} registration successful! Please log in to continue.`);
-        setTimeout(() => router.push('/login'), 3000);
+      // If we got session data from registration, use it to log the user in immediately
+      if (result.token && result.user) {
+        // Store the auth data using the proper storage utility
+        try {
+          const authData = {
+            token: result.token,
+            refresh_token: result.refresh_token || '',
+            user: result.user
+          };
+          
+          // Store auth data using tokenStorage
+          tokenStorage.setAuthData(authData);
+          
+          // Redirect immediately to dashboard - the AuthProvider will pick up the stored data
+          setTimeout(() => {
+            window.location.href = dashboardRoute; // Force page refresh to pick up auth state
+          }, 1500);
+        } catch (error) {
+          console.error('Error storing auth data:', error);
+          // Fallback to manual login
+          setTimeout(() => router.push('/login?message=Please login to continue'), 3000);
+        }
+      } else {
+        // Fallback to manual login if no session data
+        setTimeout(() => router.push('/login?message=Please login to continue'), 3000);
       }
     } catch (err) {
       console.error('Registration error:', err);
