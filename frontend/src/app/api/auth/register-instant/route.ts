@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,8 +36,7 @@ export async function POST(request: NextRequest) {
           first_name,
           last_name,
           affiliation: affiliation || '',
-          role: role || 'author',
-          email_confirm_change_new_email: false
+          role: role || 'author'
         }
       }
     });
@@ -56,10 +56,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('User created successfully:', authData.user.id);
+    console.log('User created:', authData.user.id);
 
-    // Create user profile in our users table
-    const { error: profileError } = await supabase
+    // For instant registration, we'll confirm the user's email automatically
+    if (authData.user && !authData.user.email_confirmed_at) {
+      console.log('Auto-confirming user email...');
+      
+      try {
+        // Use admin client to confirm the user
+        const { error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(
+          authData.user.id,
+          { email_confirm: true }
+        );
+        
+        if (confirmError) {
+          console.error('Email confirmation error:', confirmError);
+          // Continue anyway - user is created
+        } else {
+          console.log('Email confirmed automatically');
+        }
+      } catch (confirmError) {
+        console.error('Auto-confirm error:', confirmError);
+        // Continue anyway - user is created
+      }
+    }
+
+    // Create user profile in our users table using admin client
+    const { error: profileError } = await supabaseAdmin
       .from('users')
       .insert([
         {

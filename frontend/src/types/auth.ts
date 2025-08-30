@@ -1,10 +1,12 @@
+export type UserRole = 'author' | 'reviewer' | 'editor' | 'admin';
+
 export interface User {
   id: string;
   email: string;
   first_name: string;
   last_name: string;
   affiliation: string;
-  role: 'author' | 'reviewer' | 'editor' | 'admin';
+  role: UserRole;
   created_at: string;
   updated_at: string;
 }
@@ -26,7 +28,7 @@ export interface RegisterRequest {
   first_name: string;
   last_name: string;
   affiliation: string;
-  role?: 'author' | 'reviewer';
+  role?: UserRole;
 }
 
 export interface AuthContextType {

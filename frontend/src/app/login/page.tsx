@@ -4,13 +4,14 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthProvider';
+import { getDashboardRoute } from '@/lib/roleUtils';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -20,13 +21,21 @@ export default function LoginPage() {
 
     try {
       await login({ email, password });
-      router.push('/'); // Redirect to homepage after successful login
+      // After successful login, redirect will be handled by useEffect
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
     }
   };
+
+  // Handle redirect after user state is updated
+  React.useEffect(() => {
+    if (user) {
+      const dashboardRoute = getDashboardRoute(user.role);
+      router.push(dashboardRoute);
+    }
+  }, [user, router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">

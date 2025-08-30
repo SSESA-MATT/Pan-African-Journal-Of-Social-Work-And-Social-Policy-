@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthProvider';
+import { getDashboardRoute, getRoleName } from '@/lib/roleUtils';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -20,7 +21,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const { register } = useAuth();
+  const { register, login } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,7 +67,10 @@ export default function RegisterPage() {
         throw new Error(result.error || 'Registration failed');
       }
 
-      setSuccess('Registration successful! You can now log in with your email and password.');
+      const roleName = getRoleName(formData.role as any);
+      const dashboardRoute = getDashboardRoute(formData.role as any);
+      
+      setSuccess(`Registration successful! Welcome ${roleName}. Logging you in...`);
       
       // Clear the form
       setFormData({
@@ -81,8 +85,16 @@ export default function RegisterPage() {
         bio: ''
       });
       
-      // Redirect to login after 3 seconds
-      setTimeout(() => router.push('/login'), 3000);
+      // Auto-login the user after registration
+      try {
+        await login({ email: formData.email, password: formData.password });
+        // Redirect to appropriate dashboard after 2 seconds
+        setTimeout(() => router.push(dashboardRoute), 2000);
+      } catch (loginError) {
+        // If auto-login fails, redirect to login page
+        setSuccess(`${roleName} registration successful! Please log in to continue.`);
+        setTimeout(() => router.push('/login'), 3000);
+      }
     } catch (err) {
       console.error('Registration error:', err);
       setError(err instanceof Error ? err.message : 'Registration failed');
