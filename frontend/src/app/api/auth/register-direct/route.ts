@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create user directly in the users table (simplified for testing)
+    // Create user in the users table without password_hash (Supabase Auth handles that)
     const userId = crypto.randomUUID();
     
     const { error: userError } = await supabase
@@ -39,13 +39,10 @@ export async function POST(request: NextRequest) {
         {
           id: userId,
           email: email.toLowerCase(),
-          password_hash: 'placeholder', // We'll handle auth separately
           first_name,
           last_name,
           affiliation: affiliation || '',
-          role: role || 'author',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          role: role || 'author'
         }
       ]);
 

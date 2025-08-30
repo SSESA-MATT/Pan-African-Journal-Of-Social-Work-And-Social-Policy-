@@ -66,9 +66,7 @@ export async function POST(request: NextRequest) {
           first_name,
           last_name,
           affiliation: affiliation || '',
-          role: role || 'author',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          role: role || 'author'
         }
       ]);
 

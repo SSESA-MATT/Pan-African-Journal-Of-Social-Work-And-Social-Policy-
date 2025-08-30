@@ -44,8 +44,8 @@ export default function RegisterPage() {
     }
 
     try {
-      // Use direct registration for immediate testing
-      const response = await fetch('/api/auth/register-direct', {
+      // Use the standard Supabase Auth registration
+      const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -66,23 +66,27 @@ export default function RegisterPage() {
         throw new Error(result.error || 'Registration failed');
       }
 
-      setSuccess('Registration successful! You can now log in with your email and password.');
-      
-      // Clear the form
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-        affiliation: '',
-        role: 'author',
-        expertise: [],
-        bio: ''
-      });
-      
-      // Redirect to login after 3 seconds
-      setTimeout(() => router.push('/login'), 3000);
+      if (result.needsEmailConfirmation) {
+        setSuccess('Registration successful! Please check your email and click the confirmation link to activate your account.');
+      } else {
+        setSuccess('Registration successful! You can now log in with your email and password.');
+        
+        // Clear the form
+        setFormData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          password: '',
+          confirmPassword: '',
+          affiliation: '',
+          role: 'author',
+          expertise: [],
+          bio: ''
+        });
+        
+        // Redirect to login after 3 seconds
+        setTimeout(() => router.push('/login'), 3000);
+      }
     } catch (err) {
       console.error('Registration error:', err);
       setError(err instanceof Error ? err.message : 'Registration failed');
