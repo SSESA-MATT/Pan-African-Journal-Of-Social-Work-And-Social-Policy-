@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthProvider';
 import { getDashboardRoute } from '@/lib/roleUtils';
+import { tokenStorage } from '@/lib/storage';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -21,21 +22,33 @@ export default function LoginPage() {
 
     try {
       await login({ email, password });
-      // After successful login, redirect will be handled by useEffect
+      // Force a short delay, then navigate to dashboard
+      setTimeout(() => {
+        const currentUser = tokenStorage.getUser();
+        if (currentUser && currentUser.role) {
+          const dashboardRoute = getDashboardRoute(currentUser.role);
+          console.log('Redirecting to:', dashboardRoute, 'for role:', currentUser.role);
+          // Use window.location to force a fresh page load with updated auth state
+          window.location.href = dashboardRoute;
+        } else {
+          console.error('No user found after login, reloading page');
+          window.location.reload();
+        }
+      }, 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
-    } finally {
       setLoading(false);
     }
   };
 
   // Handle redirect after user state is updated
   React.useEffect(() => {
-    if (user) {
+    if (user && !loading) {
       const dashboardRoute = getDashboardRoute(user.role);
+      console.log('Auth effect - redirecting to:', dashboardRoute, 'for role:', user.role);
       router.push(dashboardRoute);
     }
-  }, [user, router]);
+  }, [user, router, loading]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">

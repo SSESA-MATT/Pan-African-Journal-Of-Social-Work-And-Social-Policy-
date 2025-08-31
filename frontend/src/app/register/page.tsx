@@ -96,9 +96,9 @@ export default function RegisterPage() {
         };
         tokenStorage.setAuthData(authData);
         
-        // Redirect to dashboard
+        // Redirect to dashboard using window.location for fresh page load
         setTimeout(() => {
-          window.location.href = dashboardRoute; // Force page refresh to ensure auth state is picked up
+          window.location.href = dashboardRoute;
         }, 2000);
         
       } else {

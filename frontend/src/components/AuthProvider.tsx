@@ -62,12 +62,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (credentials: LoginRequest): Promise<void> => {
     try {
       setIsLoading(true);
+      console.log('Starting login process...');
       const authData = await authService.login(credentials);
+      console.log('Login API response:', authData);
       
       tokenStorage.setAuthData(authData);
       setToken(authData.token);
       setUser(authData.user);
+      console.log('Auth state updated - user:', authData.user, 'token:', !!authData.token);
     } catch (error) {
+      console.error('Login error:', error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -103,6 +107,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const isAuthenticated = !!user && !!token;
+  
   const value: AuthContextType = {
     user,
     token,
@@ -110,8 +116,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     isLoading,
-    isAuthenticated: !!user && !!token,
+    isAuthenticated,
   };
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('Auth state update:', {
+      user: !!user,
+      token: !!token,
+      isAuthenticated,
+      isLoading,
+      userRole: user?.role
+    });
+  }, [user, token, isAuthenticated, isLoading]);
 
   return (
     <AuthContext.Provider value={value}>
