@@ -25,43 +25,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 1: Create user with admin client (auto-confirmed)
-    const { data: adminUserData, error: adminError } = await supabaseAdmin.auth.admin.createUser({
+    // Step 1: Create user with Supabase Auth (EMAIL CONFIRMATION REQUIRED)
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      email_confirm: true, // Auto-confirm email
-      user_metadata: {
-        first_name,
-        last_name,
-        affiliation: affiliation || '',
-        role: role || 'author'
+      options: {
+        data: {
+          first_name,
+          last_name,
+          affiliation: affiliation || '',
+          role: role || 'author'
+        }
       }
     });
 
-    if (adminError) {
-      console.error('Admin user creation error:', adminError);
+    if (authError) {
+      console.error('Supabase registration error:', authError);
       return NextResponse.json(
-        { error: adminError.message },
+        { error: authError.message },
         { status: 400 }
       );
     }
 
-    if (!adminUserData.user) {
+    if (!authData.user) {
       return NextResponse.json(
         { error: 'Failed to create user account' },
         { status: 500 }
       );
     }
 
-    console.log('User created with admin:', adminUserData.user.id);
+    console.log('User created, confirmation email sent:', authData.user.email);
 
-    // Step 2: Create user profile in our users table
+    // Step 2: Create user profile in our users table (will be activated after email confirmation)
     const { error: profileError } = await supabaseAdmin
       .from('users')
       .insert([
         {
-          id: adminUserData.user.id,
-          email: adminUserData.user.email,
+          id: authData.user.id,
+          email: authData.user.email,
           first_name,
           last_name,
           affiliation: affiliation || '',
@@ -71,47 +72,23 @@ export async function POST(request: NextRequest) {
 
     if (profileError) {
       console.error('Profile creation error:', profileError);
+      // Continue anyway - profile can be created later
     }
 
-    // Step 3: Sign in the user to get a proper session
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (signInError) {
-      console.error('Auto sign-in error:', signInError);
-      // User was created but couldn't sign in - they can login manually
-      return NextResponse.json({
-        message: 'Registration successful! Please log in with your credentials.',
-        user: {
-          id: adminUserData.user.id,
-          email: adminUserData.user.email!,
-          first_name,
-          last_name,
-          affiliation: affiliation || '',
-          role: role || 'author',
-          email_confirmed: true
-        },
-        needsManualLogin: true
-      });
-    }
-
-    // Step 4: Return success with session data
+    // Return success - user needs to confirm email
     return NextResponse.json({
-      message: 'Registration and login successful!',
+      message: 'Registration successful! Please check your email to confirm your account.',
       user: {
-        id: signInData.user.id,
-        email: signInData.user.email!,
+        id: authData.user.id,
+        email: authData.user.email!,
         first_name,
         last_name,
         affiliation: affiliation || '',
         role: role || 'author',
-        email_confirmed: true
+        email_confirmed: false
       },
-      token: signInData.session.access_token,
-      refresh_token: signInData.session.refresh_token,
-      autoLoggedIn: true
+      emailSent: true,
+      needsEmailConfirmation: true
     });
 
   } catch (error) {

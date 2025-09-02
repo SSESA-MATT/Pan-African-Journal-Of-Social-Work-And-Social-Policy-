@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../components/AuthProvider';
 import { getDashboardRoute } from '@/lib/roleUtils';
 import { tokenStorage } from '@/lib/storage';
@@ -12,13 +12,26 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const { login, user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Check for confirmation success or other messages
+  useEffect(() => {
+    const confirmed = searchParams.get('confirmed');
+    const message = searchParams.get('message');
+    
+    if (confirmed === 'true' && message) {
+      setSuccess(decodeURIComponent(message));
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess('');
 
     try {
       await login({ email, password });
@@ -36,7 +49,16 @@ export default function LoginPage() {
         }
       }, 1000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+      
+      // Handle specific error cases
+      if (errorMessage.includes('Email not confirmed')) {
+        setError('Please confirm your email address before logging in. Check your inbox for a confirmation email.');
+      } else if (errorMessage.includes('Invalid login credentials')) {
+        setError('Invalid email or password. Please check your credentials and try again.');
+      } else {
+        setError(errorMessage);
+      }
       setLoading(false);
     }
   };
@@ -76,6 +98,12 @@ export default function LoginPage() {
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
+              {success}
+            </div>
+          )}
+          
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
               {error}

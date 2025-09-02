@@ -84,7 +84,29 @@ export default function RegisterPage() {
         bio: ''
       });
 
-      if (result.autoLoggedIn && result.token) {
+      if (result.needsEmailConfirmation) {
+        // Email confirmation required
+        setSuccess(`Registration successful! We've sent a confirmation email to ${formData.email}. Please check your inbox and click the confirmation link to activate your account.`);
+        
+        // Clear the form
+        setFormData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          password: '',
+          confirmPassword: '',
+          affiliation: '',
+          role: 'author',
+          expertise: [],
+          bio: ''
+        });
+        
+        // Show success message - no redirect needed
+        setTimeout(() => {
+          setSuccess(prev => prev + '\n\nOnce confirmed, you can log in at the login page.');
+        }, 3000);
+        
+      } else if (result.autoLoggedIn && result.token) {
         // User was auto-logged in, store session and redirect
         setSuccess(`Registration successful! Welcome ${roleName}. Redirecting to your dashboard...`);
         

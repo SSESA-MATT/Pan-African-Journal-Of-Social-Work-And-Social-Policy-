@@ -22,10 +22,24 @@ export async function POST(request: NextRequest) {
 
     if (authError) {
       console.error('Supabase auth error:', authError);
-      return NextResponse.json(
-        { error: authError.message },
-        { status: 401 }
-      );
+      
+      // Handle specific error cases
+      if (authError.message.includes('Email not confirmed')) {
+        return NextResponse.json(
+          { error: 'Please confirm your email address before logging in. Check your inbox for a confirmation email.' },
+          { status: 400 }
+        );
+      } else if (authError.message.includes('Invalid login credentials')) {
+        return NextResponse.json(
+          { error: 'Invalid email or password. Please check your credentials and try again.' },
+          { status: 401 }
+        );
+      } else {
+        return NextResponse.json(
+          { error: authError.message },
+          { status: 401 }
+        );
+      }
     }
 
     if (!authData.user || !authData.session) {
