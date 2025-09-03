@@ -38,6 +38,12 @@ export default function LoginPage() {
       // Force a short delay, then navigate to dashboard
       setTimeout(() => {
         const currentUser = tokenStorage.getUser();
+        console.log('Post-login debug - currentUser:', currentUser);
+        console.log('Post-login debug - tokenStorage check:', {
+          hasToken: !!tokenStorage.getAccessToken(),
+          hasUser: !!currentUser
+        });
+        
         if (currentUser && currentUser.role) {
           const dashboardRoute = getDashboardRoute(currentUser.role);
           console.log('Redirecting to:', dashboardRoute, 'for role:', currentUser.role);
