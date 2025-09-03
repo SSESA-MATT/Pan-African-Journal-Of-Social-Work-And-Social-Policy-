@@ -54,27 +54,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('User created, confirmation email sent:', authData.user.email);
+    console.log('User created, confirmation email should be sent:', authData.user.email);
+    console.log('User confirmation status:', authData.user.email_confirmed_at);
 
-    // Step 2: Create user profile in our users table (will be activated after email confirmation)
-    const { error: profileError } = await supabaseAdmin
-      .from('users')
-      .insert([
-        {
-          id: authData.user.id,
-          email: authData.user.email,
-          first_name,
-          last_name,
-          affiliation: affiliation || '',
-          role: role || 'author'
-        }
-      ]);
-
-    if (profileError) {
-      console.error('Profile creation error:', profileError);
-      // Continue anyway - profile can be created later
-    }
-
+    // Profile will be created automatically after email confirmation via trigger
     // Return success - user needs to confirm email
     return NextResponse.json({
       message: 'Registration successful! Please check your email to confirm your account.',
