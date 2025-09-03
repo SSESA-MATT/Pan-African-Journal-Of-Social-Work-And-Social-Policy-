@@ -52,7 +52,7 @@ export const JournalLogo: React.FC<LogoProps> = ({ className = "" }) => {
       {/* Journal abbreviation/title */}
       <div className="flex flex-col">
         <h1 className="text-lg font-bold text-white leading-tight">
-          <span className="text-accent-green">AJSWSP</span>
+          <span className="text-accent-green">PAJSWSP</span>
         </h1>
         <p className="text-xs text-neutral-300 leading-tight">
           African Journal

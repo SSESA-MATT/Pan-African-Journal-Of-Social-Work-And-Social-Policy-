@@ -59,9 +59,9 @@ export default function ContactPage() {
     {
       title: "Email Addresses",
       details: [
-        "General Inquiries: info@ajswsp.org",
-        "Editorial: editor@ajswsp.org",
-        "Submissions: submissions@ajswsp.org"
+        "General Inquiries: info@pajswsp.org",
+        "Editorial: editor@pajswsp.org",
+        "Submissions: submissions@pajswsp.org"
       ],
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
