@@ -3,10 +3,12 @@
 -- Enable RLS on users table
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies if any
+-- Drop ALL existing policies to avoid conflicts
 DROP POLICY IF EXISTS "Users can view own profile" ON users;
 DROP POLICY IF EXISTS "Users can update own profile" ON users;
 DROP POLICY IF EXISTS "Enable insert for authenticated users" ON users;
+DROP POLICY IF EXISTS "Admins can view all users" ON users;
+DROP POLICY IF EXISTS "Admins can update any user" ON users;
 
 -- Allow users to read their own profile
 CREATE POLICY "Users can view own profile" 
