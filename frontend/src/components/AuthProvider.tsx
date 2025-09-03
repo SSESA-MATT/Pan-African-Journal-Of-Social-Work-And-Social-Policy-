@@ -23,30 +23,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const storedToken = tokenStorage.getAccessToken();
         const storedUser = tokenStorage.getUser();
 
+        console.log('AuthProvider init - storedToken:', !!storedToken, 'storedUser:', storedUser);
+
         if (storedToken && storedUser) {
-          // Validate token with server
-          const isValid = await authService.validateToken(storedToken);
-          
-          if (isValid) {
-            setToken(storedToken);
-            setUser(storedUser);
-          } else {
-            // Try to refresh token
-            const refreshToken = tokenStorage.getRefreshToken();
-            if (refreshToken) {
-              try {
-                const authData = await authService.refreshToken(refreshToken);
-                tokenStorage.setAuthData(authData);
-                setToken(authData.token);
-                setUser(authData.user);
-              } catch {
-                // Refresh failed, clear auth data
-                tokenStorage.clearAuth();
-              }
-            } else {
-              tokenStorage.clearAuth();
-            }
-          }
+          // For Supabase, we trust the stored token if user exists
+          // Supabase handles token expiry automatically
+          setToken(storedToken);
+          setUser(storedUser);
+          console.log('Auth restored from storage - user role:', storedUser.role);
+        } else {
+          console.log('No stored auth found');
+          tokenStorage.clearAuth();
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
