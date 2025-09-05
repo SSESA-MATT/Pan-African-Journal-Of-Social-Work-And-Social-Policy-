@@ -1,6 +1,7 @@
 import { getToken } from './auth';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+// Use Next.js API routes instead of external backend
+const API_BASE_URL = '/api';
 
 export interface Review {
   id: string;
