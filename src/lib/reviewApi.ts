@@ -1,6 +1,6 @@
-import { getAuthToken } from './auth';
+import { getToken } from './auth';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 export interface Review {
   id: string;
@@ -33,7 +33,7 @@ export interface AssignReviewerRequest {
 
 class ReviewApi {
   private async makeRequest(endpoint: string, options: RequestInit = {}) {
-    const token = getAuthToken();
+    const token = getToken();
     
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
