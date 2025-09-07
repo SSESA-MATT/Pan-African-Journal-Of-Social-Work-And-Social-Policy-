@@ -1,4 +1,4 @@
-import { getToken } from './auth';
+import { tokenStorage } from './storage';
 
 // Use Next.js API routes instead of external backend
 const API_BASE_URL = '/api';
@@ -34,7 +34,7 @@ export interface AssignReviewerRequest {
 
 class ReviewApi {
   private async makeRequest(endpoint: string, options: RequestInit = {}) {
-    const token = getToken();
+    const token = tokenStorage.getAccessToken();
     
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,

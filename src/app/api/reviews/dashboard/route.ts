@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+// Using standard Request/Response instead of Next.js types to avoid dependency issues
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     // For now, we'll make this more flexible for development
     // In production, you'd want proper token validation here.
@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
     // For development, we'll be more lenient with auth
     // Remove this check temporarily to allow testing
     // if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    //   return NextResponse.json(
-    //     { error: 'Authorization header required' },
-    //     { status: 401 }
+    //   return new Response(
+    //     JSON.stringify({ error: 'Authorization header required' }),
+    //     { status: 401, headers: { 'Content-Type': 'application/json' } }
     //   );
     // }
 
@@ -78,13 +78,26 @@ export async function GET(request: NextRequest) {
       }
     };
 
-    return NextResponse.json(dashboardData);
+    return new Response(
+      JSON.stringify(dashboardData),
+      { 
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
   } catch (error) {
     console.error('Reviewer dashboard error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
     );
   }
 }
