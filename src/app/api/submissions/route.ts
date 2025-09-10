@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+// Using standard Request/Response instead of Next.js types to avoid dependency issues
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     // Mock submissions data for now
     const submissions = [
@@ -15,17 +15,26 @@ export async function GET(request: NextRequest) {
       }
     ];
 
-    return NextResponse.json({ submissions });
+    return new Response(
+      JSON.stringify({ submissions }),
+      { 
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
   } catch (error) {
     console.error('Error fetching submissions:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch submissions' },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ error: 'Failed to fetch submissions' }),
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
     );
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     // Get the form data
     const formData = await request.formData();
@@ -38,9 +47,12 @@ export async function POST(request: NextRequest) {
 
     // Basic validation
     if (!title || !abstract || !manuscriptFile) {
-      return NextResponse.json(
-        { error: 'Missing required fields: title, abstract, and manuscript file are required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: title, abstract, and manuscript file are required' }),
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
     }
 
@@ -52,26 +64,35 @@ export async function POST(request: NextRequest) {
       keywords = keywordsStr ? JSON.parse(keywordsStr) : [];
       coAuthors = coAuthorsStr ? JSON.parse(coAuthorsStr) : [];
     } catch (e) {
-      return NextResponse.json(
-        { error: 'Invalid JSON in keywords or co_authors field' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in keywords or co_authors field' }),
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
     }
 
     // Validate file type
     if (manuscriptFile.type !== 'application/pdf') {
-      return NextResponse.json(
-        { error: 'Only PDF files are accepted for manuscripts' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Only PDF files are accepted for manuscripts' }),
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
     }
 
     // Validate file size (10MB limit)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (manuscriptFile.size > maxSize) {
-      return NextResponse.json(
-        { error: 'File size must be 10MB or less' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'File size must be 10MB or less' }),
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
     }
 
@@ -101,16 +122,25 @@ export async function POST(request: NextRequest) {
       fileName: manuscriptFile.name
     });
 
-    return NextResponse.json({
-      message: 'Manuscript submitted successfully',
-      submission: newSubmission
-    }, { status: 201 });
+    return new Response(
+      JSON.stringify({
+        message: 'Manuscript submitted successfully',
+        submission: newSubmission
+      }),
+      { 
+        status: 201,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
 
   } catch (error) {
     console.error('Error creating submission:', error);
-    return NextResponse.json(
-      { error: 'Failed to create submission' },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ error: 'Failed to create submission' }),
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
     );
   }
 }
