@@ -70,9 +70,7 @@ export async function getUserManuscripts(userId: string): Promise<Manuscript[]> 
 export async function getManuscriptById(manuscriptId: string): Promise<Manuscript> {
   const response = await fetch(`${API_BASE}/manuscripts/${manuscriptId}`, {
     method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('token')}`,
-    },
+    headers: getAuthHeaders(),
   });
 
   if (!response.ok) {
