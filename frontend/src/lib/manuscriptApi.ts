@@ -7,8 +7,8 @@ import {
 } from '../types/manuscript';
 
 const API_BASE = process.env.NODE_ENV === 'production' 
-  ? process.env.NEXT_PUBLIC_API_URL || 'https://your-production-domain.com/api'
-  : 'http://localhost:5000/api';
+  ? '/api' // Use relative URLs for Next.js API routes in production
+  : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 // Author-related API functions
 export async function submitManuscript(manuscriptData: ManuscriptSubmissionRequest): Promise<Manuscript> {
