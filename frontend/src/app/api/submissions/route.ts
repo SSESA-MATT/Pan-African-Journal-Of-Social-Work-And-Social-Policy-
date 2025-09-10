@@ -9,6 +9,19 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Add CORS headers
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: corsHeaders() });
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Fetch real submissions from database
@@ -24,120 +37,133 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching submissions:', error);
       return NextResponse.json(
         { error: 'Failed to fetch submissions' },
-        { status: 500 }
+        { status: 500, headers: corsHeaders() }
       );
     }
 
-    return NextResponse.json({ submissions });
+    return NextResponse.json(submissions || [], { headers: corsHeaders() });
+
   } catch (error) {
-    console.error('Error fetching submissions:', error);
+    console.error('GET submissions error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch submissions' },
-      { status: 500 }
+      { error: 'Internal server error' },
+      { status: 500, headers: corsHeaders() }
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the form data
+    console.log('Processing manuscript submission...');
+    
     const formData = await request.formData();
     
+    // Extract form data
     const title = formData.get('title') as string;
     const abstract = formData.get('abstract') as string;
-    const keywordsStr = formData.get('keywords') as string;
-    const coAuthorsStr = formData.get('co_authors') as string;
-    const manuscriptFile = formData.get('manuscript') as File;
+    const keywords = formData.get('keywords') as string;
+    const manuscriptType = formData.get('manuscriptType') as string;
+    const file = formData.get('manuscript') as File;
+    const authorStatement = formData.get('authorStatement') as string;
+    const ethicsStatement = formData.get('ethicsStatement') as string;
+    const conflictOfInterest = formData.get('conflictOfInterest') as string;
+    const funding = formData.get('funding') as string;
 
-    // Basic validation
-    if (!title || !abstract || !manuscriptFile) {
+    // Validate required fields
+    if (!title || !abstract || !file) {
       return NextResponse.json(
         { error: 'Missing required fields: title, abstract, and manuscript file are required' },
-        { status: 400 }
-      );
-    }
-
-    // Parse JSON fields
-    let keywords = [];
-    let coAuthors = [];
-    
-    try {
-      keywords = keywordsStr ? JSON.parse(keywordsStr) : [];
-      coAuthors = coAuthorsStr ? JSON.parse(coAuthorsStr) : [];
-    } catch (e) {
-      return NextResponse.json(
-        { error: 'Invalid JSON in keywords or co_authors field' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders() }
       );
     }
 
     // Validate file type
-    if (manuscriptFile.type !== 'application/pdf') {
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Only PDF files are accepted for manuscripts' },
-        { status: 400 }
+        { error: 'Invalid file type. Please upload a PDF or Word document.' },
+        { status: 400, headers: corsHeaders() }
       );
     }
 
     // Validate file size (10MB limit)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (manuscriptFile.size > maxSize) {
+    if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json(
-        { error: 'File size must be 10MB or less' },
-        { status: 400 }
+        { error: 'File too large. Maximum size is 10MB.' },
+        { status: 400, headers: corsHeaders() }
       );
     }
 
-    // TODO: For now, we'll use a mock author ID
-    // In production, get this from the JWT token
-    const authorId = 'default-author-id';
+    // For now, we'll store a placeholder file URL
+    // In production, you'd upload to cloud storage (Cloudinary, AWS S3, etc.)
+    const fileUrl = `manuscripts/${Date.now()}-${file.name}`;
 
-    // TODO: Upload file to Supabase Storage
-    // For now, we'll store a mock file URL
-    const fileName = `manuscripts/${Date.now()}-${manuscriptFile.name}`;
-    const manuscriptUrl = `https://your-supabase-storage.com/${fileName}`;
+    // Parse keywords array
+    let keywordsArray: string[] = [];
+    try {
+      keywordsArray = keywords ? keywords.split(',').map(k => k.trim()).filter(k => k.length > 0) : [];
+    } catch (e) {
+      keywordsArray = [];
+    }
 
-    // Insert submission into database
-    const { data: newSubmission, error: insertError } = await supabase
+    // Create submission record
+    const submissionData = {
+      title,
+      abstract,
+      keywords: keywordsArray,
+      manuscript_type: manuscriptType || 'research_article',
+      manuscript_file_url: fileUrl,
+      author_id: '00000000-0000-0000-0000-000000000001', // Default for testing
+      status: 'submitted',
+      submission_date: new Date().toISOString(),
+      author_statement: authorStatement,
+      ethics_statement: ethicsStatement,
+      conflict_of_interest: conflictOfInterest,
+      funding_statement: funding
+    };
+
+    console.log('Saving submission to database:', submissionData);
+
+    const { data: submission, error: dbError } = await supabase
       .from('submissions')
-      .insert([{
-        title,
-        abstract,
-        keywords,
-        co_authors: coAuthors,
-        author_id: authorId,
-        status: 'submitted',
-        manuscript_file_url: manuscriptUrl,
-        submission_date: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }])
+      .insert([submissionData])
       .select()
       .single();
 
-    if (insertError) {
-      console.error('Error creating submission:', insertError);
+    if (dbError) {
+      console.error('Database error:', dbError);
       return NextResponse.json(
-        { error: 'Failed to create submission: ' + insertError.message },
-        { status: 500 }
+        { error: 'Failed to save submission to database', details: dbError.message },
+        { status: 500, headers: corsHeaders() }
       );
     }
 
-    console.log('Submission created in database:', {
-      id: newSubmission.id,
-      title: newSubmission.title,
-      status: newSubmission.status
-    });
+    console.log('Submission saved successfully:', submission);
 
-    return NextResponse.json({
-      message: 'Manuscript submitted successfully',
-      submission: newSubmission
-    }, { status: 201 });
+    return NextResponse.json(
+      { 
+        success: true, 
+        message: 'Manuscript submitted successfully!',
+        submission: {
+          id: submission.id,
+          title: submission.title,
+          status: submission.status,
+          submission_date: submission.submission_date
+        }
+      },
+      { status: 201, headers: corsHeaders() }
+    );
 
   } catch (error) {
-    console.error('Error creating submission:', error);
+    console.error('POST submission error:', error);
     return NextResponse.json(
-      { error: 'Failed to create submission' },
-      { status: 500 }
+      { error: 'Internal server error during submission' },
+      { status: 500, headers: corsHeaders() }
     );
   }
 }

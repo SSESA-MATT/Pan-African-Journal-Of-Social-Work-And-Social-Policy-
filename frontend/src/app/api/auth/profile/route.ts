@@ -4,6 +4,19 @@ import { supabase } from '@/lib/supabase';
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
 
+// Add CORS headers
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: corsHeaders() });
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Get the token from the Authorization header
@@ -11,7 +24,7 @@ export async function GET(request: NextRequest) {
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: 'No authorization token provided' },
-        { status: 401 }
+        { status: 401, headers: corsHeaders() }
       );
     }
 
@@ -23,7 +36,7 @@ export async function GET(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Invalid token' },
-        { status: 401 }
+        { status: 401, headers: corsHeaders() }
       );
     }
 
@@ -47,7 +60,7 @@ export async function GET(request: NextRequest) {
         updated_at: new Date().toISOString()
       };
 
-      return NextResponse.json({ user: userData });
+      return NextResponse.json({ user: userData }, { headers: corsHeaders() });
     }
 
     // Return user profile data
@@ -62,13 +75,13 @@ export async function GET(request: NextRequest) {
       updated_at: userProfile.updated_at || new Date().toISOString()
     };
 
-    return NextResponse.json({ user: userData });
+    return NextResponse.json({ user: userData }, { headers: corsHeaders() });
 
   } catch (error) {
     console.error('Profile fetch error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders() }
     );
   }
 }

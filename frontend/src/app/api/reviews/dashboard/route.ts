@@ -9,6 +9,19 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Add CORS headers
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: corsHeaders() });
+}
+
 export async function GET(request: NextRequest) {
   try {
     console.log('Fetching reviewer dashboard data from database...');
@@ -91,11 +104,13 @@ export async function GET(request: NextRequest) {
       }];
     }
 
+    return NextResponse.json(dashboardData, { headers: corsHeaders() });
+
   } catch (error) {
     console.error('Dashboard API error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch dashboard data' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders() }
     );
   }
 }
