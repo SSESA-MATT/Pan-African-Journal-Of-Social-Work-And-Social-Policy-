@@ -6,17 +6,32 @@ import {
   ReviewSubmissionRequest 
 } from '../types/manuscript';
 
+// Helper function to get auth token
+const getAuthToken = (): string | null => {
+  return localStorage.getItem('africa_journal_access_token');
+};
+
+// Helper function to get auth headers
+const getAuthHeaders = (): Record<string, string> => {
+  const token = getAuthToken();
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+  };
+};
+
 const API_BASE = process.env.NODE_ENV === 'production' 
   ? '/api' // Use relative URLs for Next.js API routes in production
   : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 // Author-related API functions
 export async function submitManuscript(manuscriptData: ManuscriptSubmissionRequest): Promise<Manuscript> {
+  const token = getAuthToken();
   const response = await fetch(`${API_BASE}/manuscripts`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(manuscriptData),
   });
@@ -29,14 +44,23 @@ export async function submitManuscript(manuscriptData: ManuscriptSubmissionReque
 }
 
 export async function getUserManuscripts(userId: string): Promise<Manuscript[]> {
-  const response = await fetch(`${API_BASE}/manuscripts/user/${userId}`, {
+  const url = `${API_BASE}/manuscripts/user/${userId}`;
+  const token = getAuthToken();
+  console.log('getUserManuscripts - API_BASE:', API_BASE);
+  console.log('getUserManuscripts - userId:', userId);
+  console.log('getUserManuscripts - constructed URL:', url);
+  console.log('getUserManuscripts - token exists:', !!token);
+  
+  const response = await fetch(url, {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
   });
 
   if (!response.ok) {
+    console.error('getUserManuscripts - Response not OK:', response.status, response.statusText);
     throw new Error('Failed to fetch manuscripts');
   }
 

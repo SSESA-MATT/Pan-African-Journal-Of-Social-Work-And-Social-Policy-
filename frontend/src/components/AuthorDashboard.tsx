@@ -32,11 +32,14 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
   const loadManuscripts = async () => {
     try {
       setLoading(true);
+      console.log('loadManuscripts - user object:', user);
+      console.log('loadManuscripts - user.id:', user!.id);
+      console.log('loadManuscripts - user.id type:', typeof user!.id);
       const userManuscripts = await getUserManuscripts(user!.id);
       setManuscripts(userManuscripts);
     } catch (err) {
       setError('Failed to load manuscripts');
-      console.error(err);
+      console.error('loadManuscripts error:', err);
     } finally {
       setLoading(false);
     }
