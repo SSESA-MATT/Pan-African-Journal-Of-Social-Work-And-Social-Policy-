@@ -1,19 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export async function GET(request: NextRequest) {
   try {
-    // Mock submissions data for now
-    const submissions = [
-      {
-        id: 'sub-1',
-        title: 'Ubuntu Philosophy in Social Work Practice',
-        abstract: 'This paper explores the integration of Ubuntu philosophy into contemporary social work practice...',
-        author_id: 'user-123',
-        status: 'under_review',
-        submitted_at: new Date().toISOString(),
-        keywords: ['Ubuntu', 'social work', 'philosophy']
-      }
-    ];
+    // Fetch real submissions from database
+    const { data: submissions, error } = await supabase
+      .from('submissions')
+      .select(`
+        *,
+        users!inner(first_name, last_name, email, affiliation)
+      `)
+      .order('submitted_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching submissions:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch submissions' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ submissions });
   } catch (error) {
@@ -75,30 +85,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For now, we'll create a mock submission since we don't have database connection
-    // In production, you would:
-    // 1. Save the file to cloud storage (S3, Cloudinary, etc.)
-    // 2. Save submission data to database
-    // 3. Send notification emails
-    
-    const newSubmission = {
-      id: `sub-${Date.now()}`,
-      title,
-      abstract,
-      keywords,
-      co_authors: coAuthors,
-      author_id: 'current-user-id', // This should come from auth token
-      status: 'submitted',
-      submitted_at: new Date().toISOString(),
-      manuscript_url: `uploads/${manuscriptFile.name}`, // Mock URL
-      updated_at: new Date().toISOString()
-    };
+    // TODO: For now, we'll use a mock author ID
+    // In production, get this from the JWT token
+    const authorId = 'default-author-id';
 
-    console.log('Submission created:', {
+    // TODO: Upload file to Supabase Storage
+    // For now, we'll store a mock file URL
+    const fileName = `manuscripts/${Date.now()}-${manuscriptFile.name}`;
+    const manuscriptUrl = `https://your-supabase-storage.com/${fileName}`;
+
+    // Insert submission into database
+    const { data: newSubmission, error: insertError } = await supabase
+      .from('submissions')
+      .insert([{
+        title,
+        abstract,
+        keywords,
+        co_authors: coAuthors,
+        author_id: authorId,
+        status: 'submitted',
+        manuscript_file_url: manuscriptUrl,
+        submitted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error creating submission:', insertError);
+      return NextResponse.json(
+        { error: 'Failed to create submission: ' + insertError.message },
+        { status: 500 }
+      );
+    }
+
+    console.log('Submission created in database:', {
       id: newSubmission.id,
       title: newSubmission.title,
-      fileSize: manuscriptFile.size,
-      fileName: manuscriptFile.name
+      status: newSubmission.status
     });
 
     return NextResponse.json({
