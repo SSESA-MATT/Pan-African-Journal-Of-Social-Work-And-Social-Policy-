@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -15,7 +18,7 @@ export async function GET(request: NextRequest) {
         *,
         users!inner(first_name, last_name, email, affiliation)
       `)
-      .order('submitted_at', { ascending: false });
+      .order('submission_date', { ascending: false });
 
     if (error) {
       console.error('Error fetching submissions:', error);
@@ -105,7 +108,7 @@ export async function POST(request: NextRequest) {
         author_id: authorId,
         status: 'submitted',
         manuscript_file_url: manuscriptUrl,
-        submitted_at: new Date().toISOString(),
+        submission_date: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }])
       .select()

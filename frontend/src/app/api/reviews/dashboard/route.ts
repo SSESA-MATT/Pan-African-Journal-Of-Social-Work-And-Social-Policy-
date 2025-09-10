@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -18,16 +21,20 @@ export async function GET(request: NextRequest) {
         title,
         abstract,
         keywords,
-        submitted_at,
+        submission_date,
         status,
         users!inner(first_name, last_name, affiliation)
       `)
       .in('status', ['submitted', 'under_review'])
       .not('author_id', 'in', '("00000000-0000-0000-0000-000000000001","00000000-0000-0000-0000-000000000002","00000000-0000-0000-0000-000000000003")')
-      .order('submitted_at', { ascending: false });
+      .order('submission_date', { ascending: false });
 
     if (submissionsError) {
       console.error('Error fetching submissions:', submissionsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch submissions', details: submissionsError.message },
+        { status: 500 }
+      );
     }
 
     // Transform submissions for pending reviews
@@ -39,7 +46,7 @@ export async function GET(request: NextRequest) {
         title: submission.title,
         abstract: submission.abstract,
         status: 'pending',
-        submitted_at: submission.submitted_at,
+        submitted_at: submission.submission_date,
         due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
         author_first_name: user?.first_name || 'Unknown',
         author_last_name: user?.last_name || 'Author',
