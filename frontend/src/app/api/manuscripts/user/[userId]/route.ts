@@ -30,7 +30,7 @@ export async function GET(
     const userId = params.userId;
     console.log(`Fetching manuscripts for user: ${userId}`);
 
-    // Get manuscripts for specific user
+    // Get manuscripts for specific user using only valid columns
     const { data: submissions, error } = await supabase
       .from('submissions')
       .select(`
@@ -38,17 +38,14 @@ export async function GET(
         title,
         abstract,
         keywords,
-        manuscript_type,
+        co_authors,
+        submission_type,
         status,
         submission_date,
-        full_text,
-        corresponding_author,
-        all_authors,
-        author_statement,
-        ethics_statement,
-        conflict_of_interest,
-        funding_statement,
-        data_availability_statement
+        word_count,
+        manuscript_file_url,
+        created_at,
+        updated_at
       `)
       .eq('author_id', userId)
       .order('submission_date', { ascending: false });
@@ -66,19 +63,21 @@ export async function GET(
       id: submission.id,
       title: submission.title,
       abstract: submission.abstract,
-      content: submission.full_text || '',
+      content: '', // Not stored in database for this version
       keywords: submission.keywords || [],
-      authors: submission.all_authors ? submission.all_authors.split(', ') : [],
-      corresponding_author: submission.corresponding_author || '',
-      manuscript_type: submission.manuscript_type || 'research',
-      funding_information: submission.funding_statement || '',
-      conflict_of_interest: submission.conflict_of_interest || '',
-      ethics_approval: submission.ethics_statement || '',
-      data_availability: submission.data_availability_statement || '',
+      authors: Array.isArray(submission.co_authors) ? submission.co_authors : [],
+      corresponding_author: '', // Not stored separately in current schema
+      manuscript_type: submission.submission_type || 'research',
+      funding_information: '', // Not stored in current schema
+      conflict_of_interest: '', // Not stored in current schema  
+      ethics_approval: '', // Not stored in current schema
+      data_availability: '', // Not stored in current schema
       status: submission.status,
       submission_date: submission.submission_date,
-      created_at: submission.submission_date,
-      updated_at: submission.submission_date
+      created_at: submission.created_at || submission.submission_date,
+      updated_at: submission.updated_at || submission.submission_date,
+      word_count: submission.word_count || 0,
+      manuscript_file_url: submission.manuscript_file_url
     }));
 
     return NextResponse.json(manuscripts, { headers: corsHeaders() });

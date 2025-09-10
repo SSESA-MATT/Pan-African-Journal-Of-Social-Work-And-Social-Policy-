@@ -51,24 +51,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create submission record
+    // Create submission record using only valid columns
     const submissionData = {
       title,
       abstract,
       keywords: Array.isArray(keywords) ? keywords : [],
-      manuscript_type: manuscript_type || 'research',
+      co_authors: Array.isArray(authors) ? authors : (typeof authors === 'string' ? [authors] : []),
       manuscript_file_url: 'text-submission', // For text-based submissions
       author_id: '00000000-0000-0000-0000-000000000001', // Default for testing
       status: 'submitted',
-      submission_date: new Date().toISOString(),
-      author_statement: funding_information,
-      ethics_statement: ethics_approval,
-      conflict_of_interest: conflict_of_interest,
-      funding_statement: funding_information,
-      full_text: content,
-      corresponding_author,
-      all_authors: Array.isArray(authors) ? authors.join(', ') : authors,
-      data_availability_statement: data_availability
+      submission_type: manuscript_type || 'research_article',
+      word_count: content ? content.split(' ').length : 0,
+      submission_date: new Date().toISOString()
     };
 
     console.log('Saving manuscript to database:', submissionData);
