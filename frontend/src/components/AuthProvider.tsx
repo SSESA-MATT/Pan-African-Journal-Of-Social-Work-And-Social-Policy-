@@ -24,6 +24,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const storedUser = tokenStorage.getUser();
 
         console.log('AuthProvider init - storedToken:', !!storedToken, 'storedUser:', storedUser);
+        console.log('AuthProvider init - storedToken actual:', storedToken);
+        console.log('AuthProvider init - storedUser actual:', storedUser);
 
         if (storedToken && storedUser) {
           // For Supabase, we trust the stored token if user exists
@@ -32,7 +34,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(storedUser);
           console.log('Auth restored from storage - user role:', storedUser.role);
         } else {
-          console.log('No stored auth found');
+          console.log('No stored auth found - storedToken:', !!storedToken, 'storedUser:', !!storedUser);
           tokenStorage.clearAuth();
         }
       } catch (error) {

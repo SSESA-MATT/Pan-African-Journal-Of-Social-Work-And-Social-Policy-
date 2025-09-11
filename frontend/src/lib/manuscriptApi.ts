@@ -27,7 +27,8 @@ const API_BASE = process.env.NODE_ENV === 'production'
 // Author-related API functions
 export async function submitManuscript(manuscriptData: ManuscriptSubmissionRequest): Promise<Manuscript> {
   const token = getAuthToken();
-  const response = await fetch(`${API_BASE}/manuscripts`, {
+  // Use the existing submissions endpoint that works in production
+  const response = await fetch(`${API_BASE}/submissions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -44,7 +45,7 @@ export async function submitManuscript(manuscriptData: ManuscriptSubmissionReque
 }
 
 export async function getUserManuscripts(userId: string): Promise<Manuscript[]> {
-  const url = `${API_BASE}/manuscripts/user/${userId}`;
+  const url = `${API_BASE}/submissions?userId=${userId}`;
   const token = getAuthToken();
   console.log('getUserManuscripts - API_BASE:', API_BASE);
   console.log('getUserManuscripts - userId:', userId);
