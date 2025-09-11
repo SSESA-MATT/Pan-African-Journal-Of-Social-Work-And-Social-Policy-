@@ -28,11 +28,44 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     
+    console.log('GET submissions - userId:', userId);
+    
+    // If userId is provided, verify the user exists first
+    if (userId) {
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', userId)
+        .single();
+        
+      if (userError) {
+        console.log('User lookup error (might not exist):', userError.message);
+        // User might not exist, but that's okay - just return empty array
+      }
+    }
+    
     let query = supabase
       .from('submissions')
       .select(`
-        *,
-        users!inner(first_name, last_name, email, affiliation)
+        id,
+        title,
+        abstract,
+        keywords,
+        manuscript_type,
+        manuscript_file_url,
+        author_id,
+        status,
+        submission_date,
+        co_authors,
+        submission_type,
+        word_count,
+        corresponding_author,
+        funding_statement,
+        conflict_of_interest,
+        ethics_statement,
+        data_availability,
+        created_at,
+        updated_at
       `);
     
     // If userId is provided, filter by that user
@@ -46,12 +79,38 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error fetching submissions:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch submissions' },
+        { error: 'Failed to fetch submissions', details: error.message },
         { status: 500, headers: corsHeaders() }
       );
     }
 
-    return NextResponse.json(submissions || [], { headers: corsHeaders() });
+    console.log(`Found ${submissions?.length || 0} submissions for user ${userId}`);
+
+    // Transform the data to match the expected manuscript format
+    const manuscripts = (submissions || []).map(submission => ({
+      id: submission.id,
+      title: submission.title,
+      abstract: submission.abstract,
+      content: '', // Not stored in database for this version
+      keywords: submission.keywords || [],
+      authors: Array.isArray(submission.co_authors) ? submission.co_authors : [],
+      corresponding_author: submission.corresponding_author || '',
+      manuscript_type: submission.submission_type || submission.manuscript_type || 'research',
+      funding_information: submission.funding_statement || '',
+      conflict_of_interest: submission.conflict_of_interest || '',
+      ethics_approval: submission.ethics_statement || '',
+      data_availability: submission.data_availability || '',
+      status: submission.status,
+      submission_date: submission.submission_date,
+      created_at: submission.created_at || submission.submission_date,
+      updated_at: submission.updated_at || submission.submission_date,
+      last_updated: submission.updated_at || submission.submission_date,
+      word_count: submission.word_count || 0,
+      manuscript_file_url: submission.manuscript_file_url,
+      assigned_reviewers: [] // Not implemented yet
+    }));
+
+    return NextResponse.json(manuscripts, { headers: corsHeaders() });
 
   } catch (error) {
     console.error('GET submissions error:', error);
