@@ -69,6 +69,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
         conflict_of_interest: formData.conflict_of_interest.trim() || undefined,
         ethics_approval: formData.ethics_approval.trim() || undefined,
         data_availability: formData.data_availability.trim() || undefined,
+        author_id: user?.id || 'demo-user-id', // Include the author ID
       };
 
       await submitManuscript(submissionData);

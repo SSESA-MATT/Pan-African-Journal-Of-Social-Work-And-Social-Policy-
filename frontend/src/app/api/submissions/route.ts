@@ -43,6 +43,9 @@ const mockManuscripts = [
   }
 ];
 
+// In-memory storage for demo submissions (in production, this would be in database)
+let demoSubmissions: any[] = [];
+
 export async function GET(request: NextRequest) {
   console.log('Starting GET /api/submissions request');
   
@@ -58,8 +61,24 @@ export async function GET(request: NextRequest) {
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      console.log('Supabase not configured, returning mock data');
-      return NextResponse.json(mockManuscripts, { headers: corsHeaders() });
+      console.log('Supabase not configured, returning mock data and demo submissions');
+      
+      // Always include the mock manuscript for any user in demo mode
+      const mockWithUserId = {
+        ...mockManuscripts[0],
+        author_id: userId || 'demo-user-id'
+      };
+      
+      // Filter demo submissions by user if userId is provided
+      let userSubmissions = demoSubmissions;
+      if (userId) {
+        userSubmissions = demoSubmissions.filter(sub => sub.author_id === userId);
+      }
+      
+      // Combine mock manuscript with user's demo submissions
+      const allManuscripts = [mockWithUserId, ...userSubmissions];
+      console.log(`Returning ${allManuscripts.length} manuscripts for user ${userId}`);
+      return NextResponse.json(allManuscripts, { headers: corsHeaders() });
     }
 
     // Try to connect to Supabase
@@ -150,7 +169,8 @@ export async function POST(request: NextRequest) {
         conflict_of_interest: jsonData.conflict_of_interest,
         ethics_approval: jsonData.ethics_approval,
         data_availability: jsonData.data_availability,
-        file: null // No file in JSON submissions for now
+        file: null, // No file in JSON submissions for now
+        author_id: jsonData.author_id || 'demo-user-id' // Get author ID from request
       };
     } else {
       // Handle FormData submission (from regular SubmissionForm)
@@ -168,6 +188,7 @@ export async function POST(request: NextRequest) {
         conflict_of_interest: formData.get('conflictOfInterest') as string,
         ethics_approval: formData.get('ethicsStatement') as string,
         data_availability: '',
+        author_id: (formData.get('author_id') as string) || 'demo-user-id'
       };
     }
 
@@ -184,12 +205,44 @@ export async function POST(request: NextRequest) {
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      console.log('Supabase not configured, returning mock success response');
+      console.log('Supabase not configured, storing in demo mode');
+      
+      // Create a demo submission
+      const demoSubmission = {
+        id: 'demo-' + Date.now(),
+        title: submissionData.title,
+        abstract: submissionData.abstract,
+        content: '',
+        keywords: Array.isArray(submissionData.keywords) ? submissionData.keywords : submissionData.keywords?.split(',').map((k: string) => k.trim()) || [],
+        authors: Array.isArray(submissionData.authors) ? submissionData.authors : submissionData.authors?.split(',').map((a: string) => a.trim()) || [],
+        corresponding_author: submissionData.corresponding_author || '',
+        manuscript_type: submissionData.manuscriptType || 'research',
+        funding_information: submissionData.funding_information || '',
+        conflict_of_interest: submissionData.conflict_of_interest || '',
+        ethics_approval: submissionData.ethics_approval || '',
+        data_availability: submissionData.data_availability || '',
+        status: 'submitted',
+        submission_date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        last_updated: new Date().toISOString(),
+        word_count: submissionData.content ? submissionData.content.split(' ').length : 0,
+        manuscript_file_url: submissionData.file ? `demo-file-${Date.now()}` : '',
+        assigned_reviewers: [],
+        author_id: submissionData.author_id // Use the actual author ID
+      };
+      
+      // Store the submission
+      demoSubmissions.push(demoSubmission);
+      console.log('Demo submission stored for author:', demoSubmission.author_id);
+      
       return NextResponse.json(
         { 
+          success: true,
           message: 'Manuscript submitted successfully (demo mode)',
-          id: 'mock-' + Date.now(),
-          status: 'submitted'
+          id: demoSubmission.id,
+          status: 'submitted',
+          submission: demoSubmission
         },
         { status: 201, headers: corsHeaders() }
       );

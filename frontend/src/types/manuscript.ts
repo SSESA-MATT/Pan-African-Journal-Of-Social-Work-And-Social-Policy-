@@ -93,6 +93,7 @@ export interface ManuscriptSubmissionRequest {
   conflict_of_interest?: string;
   ethics_approval?: string;
   data_availability?: string;
+  author_id?: string;
 }
 
 export interface ManuscriptUpdateRequest {
