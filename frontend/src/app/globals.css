@@ -9,6 +9,21 @@
   
   body {
     @apply bg-white text-neutral-900;
+    cursor: default; /* Fix cursor being everywhere */
+  }
+  
+  /* Specific cursor styles */
+  input, textarea, select {
+    cursor: text;
+  }
+  
+  button, a, [role="button"] {
+    cursor: pointer;
+  }
+  
+  /* Prevent text cursor on non-input elements */
+  div, span, p, h1, h2, h3, h4, h5, h6 {
+    cursor: default;
   }
 }
 

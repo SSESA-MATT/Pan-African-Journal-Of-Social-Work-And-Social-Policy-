@@ -9,7 +9,7 @@ import {
   updateManuscriptStatus 
 } from '../lib/manuscriptApi';
 import { Manuscript } from '../types/manuscript';
-import ManuscriptSubmissionForm from './ManuscriptSubmissionForm';
+import SubmissionForm from './ManuscriptSubmissionForm';
 
 interface AuthorDashboardProps {
   onViewManuscript?: (manuscript: Manuscript) => void;
@@ -32,10 +32,15 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
   const loadManuscripts = async () => {
     try {
       setLoading(true);
+      console.log('loadManuscripts - Starting...');
       console.log('loadManuscripts - user object:', user);
       console.log('loadManuscripts - user.id:', user!.id);
       console.log('loadManuscripts - user.id type:', typeof user!.id);
+      
       const userManuscripts = await getUserManuscripts(user!.id);
+      console.log('loadManuscripts - Retrieved manuscripts:', userManuscripts);
+      console.log('loadManuscripts - Manuscript count:', userManuscripts.length);
+      
       setManuscripts(userManuscripts);
     } catch (err) {
       setError('Failed to load manuscripts');
@@ -374,9 +379,18 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
         )}
 
         {activeTab === 'new-submission' && (
-          <ManuscriptSubmissionForm 
+          <SubmissionForm 
             onSubmissionComplete={() => {
-              loadManuscripts();
+              console.log('*** SUBMISSION COMPLETED - Starting refresh process ***');
+              console.log('Current user:', user);
+              console.log('Current manuscripts count before reload:', manuscripts.length);
+              
+              // Reload manuscripts
+              loadManuscripts().then(() => {
+                console.log('*** Manuscripts reloaded, switching to manuscripts tab ***');
+              });
+              
+              // Switch to manuscripts tab
               setActiveTab('manuscripts');
             }}
           />

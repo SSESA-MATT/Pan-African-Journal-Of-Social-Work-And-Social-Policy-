@@ -32,6 +32,12 @@ export async function submitManuscript(manuscriptData: ManuscriptSubmissionReque
   id?: string;
 }> {
   const token = getAuthToken();
+  console.log('*** submitManuscript DEBUG ***');
+  console.log('submitManuscript - manuscriptData.author_id:', manuscriptData.author_id);
+  console.log('submitManuscript - manuscriptData.title:', manuscriptData.title);
+  console.log('submitManuscript - API_BASE:', API_BASE);
+  console.log('submitManuscript - token exists:', !!token);
+  
   // Use the existing submissions endpoint that works in production
   const response = await fetch(`${API_BASE}/submissions`, {
     method: 'POST',
@@ -42,20 +48,30 @@ export async function submitManuscript(manuscriptData: ManuscriptSubmissionReque
     body: JSON.stringify(manuscriptData),
   });
 
+  console.log('submitManuscript - Response status:', response.status);
+  console.log('submitManuscript - Response ok:', response.ok);
+
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('submitManuscript - Error response:', errorText);
     throw new Error('Failed to submit manuscript');
   }
 
-  return response.json();
+  const result = await response.json();
+  console.log('submitManuscript - Success response:', result);
+  
+  return result;
 }
 
 export async function getUserManuscripts(userId: string): Promise<Manuscript[]> {
   const url = `${API_BASE}/submissions?userId=${userId}`;
   const token = getAuthToken();
+  console.log('*** getUserManuscripts DEBUG ***');
   console.log('getUserManuscripts - API_BASE:', API_BASE);
   console.log('getUserManuscripts - userId:', userId);
   console.log('getUserManuscripts - constructed URL:', url);
   console.log('getUserManuscripts - token exists:', !!token);
+  console.log('getUserManuscripts - token preview:', token ? token.substring(0, 20) + '...' : 'No token');
   
   const response = await fetch(url, {
     method: 'GET',
@@ -65,12 +81,19 @@ export async function getUserManuscripts(userId: string): Promise<Manuscript[]> 
     },
   });
 
+  console.log('getUserManuscripts - Response status:', response.status);
+  console.log('getUserManuscripts - Response ok:', response.ok);
+
   if (!response.ok) {
     console.error('getUserManuscripts - Response not OK:', response.status, response.statusText);
     throw new Error('Failed to fetch manuscripts');
   }
 
-  return response.json();
+  const manuscripts = await response.json();
+  console.log('getUserManuscripts - Raw response:', manuscripts);
+  console.log('getUserManuscripts - Manuscripts count:', manuscripts.length);
+  
+  return manuscripts;
 }
 
 export async function getManuscriptById(manuscriptId: string): Promise<Manuscript> {

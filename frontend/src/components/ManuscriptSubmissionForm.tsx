@@ -132,9 +132,11 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
       }
 
       setSuccess(true);
+      
+      // Wait a bit then call the completion callback to refresh the dashboard
       setTimeout(() => {
         onSubmissionComplete();
-      }, 2000);
+      }, 1500); // Reduced from 2000ms to make it feel more responsive
 
     } catch (err) {
       console.error('Submission error:', err);
@@ -146,30 +148,36 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
 
   if (success) {
     return (
-      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
-        <div className="text-center">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-            <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+              <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="mt-4 text-lg font-medium text-gray-900">Manuscript Submitted Successfully!</h3>
+            <p className="mt-2 text-sm text-gray-500">
+              Your manuscript has been submitted and is now under review. You will be notified of any updates.
+            </p>
+            <p className="mt-4 text-xs text-gray-400">
+              Redirecting to your manuscripts...
+            </p>
           </div>
-          <h3 className="mt-4 text-lg font-medium text-gray-900">Manuscript Submitted Successfully!</h3>
-          <p className="mt-2 text-sm text-gray-500">
-            Your manuscript has been submitted and is now under review. You will be notified of any updates.
-          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">Submit New Manuscript</h2>
-        <p className="mt-2 text-gray-600">
-          Please fill in all required information about your manuscript submission.
-        </p>
-      </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900">Submit New Manuscript</h2>
+          <p className="mt-2 text-gray-600">
+            Please fill in all required information about your manuscript submission.
+          </p>
+        </div>
 
       {error && (
         <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
@@ -475,6 +483,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
           </button>
         </div>
       </form>
+      </div>
     </div>
   );
 };
