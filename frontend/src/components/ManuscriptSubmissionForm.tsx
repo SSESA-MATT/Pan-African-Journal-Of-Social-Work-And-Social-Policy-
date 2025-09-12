@@ -14,6 +14,8 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [fileUploading, setFileUploading] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -26,15 +28,57 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
     funding_information: '',
     conflict_of_interest: '',
     ethics_approval: '',
-    data_availability: ''
+    data_availability: '',
+    manuscript_file: null as File | null
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    const { name, value, type } = e.target;
+    
+    if (type === 'file') {
+      const fileInput = e.target as HTMLInputElement;
+      const file = fileInput.files?.[0] || null;
+      setFormData(prev => ({
+        ...prev,
+        manuscript_file: file
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  const uploadFile = async (file: File, submissionId: string): Promise<string> => {
+    setFileUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+      uploadFormData.append('authorId', user?.id || 'anonymous');
+      uploadFormData.append('submissionId', submissionId);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: uploadFormData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'File upload failed');
+      }
+
+      const result = await response.json();
+      setUploadProgress(100);
+      return result.fileUrl;
+    } catch (error) {
+      console.error('File upload error:', error);
+      throw error;
+    } finally {
+      setFileUploading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,38 +92,53 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
       if (!formData.abstract.trim()) throw new Error('Abstract is required');
       if (!formData.content.trim()) throw new Error('Content is required');
       if (!formData.authors.trim()) throw new Error('Authors are required');
-      if (!formData.corresponding_author.trim()) throw new Error('Corresponding author is required');
 
-      // Parse keywords and authors
-      const keywords = formData.keywords.split(',').map(k => k.trim()).filter(k => k);
-      const authors = formData.authors.split(',').map(a => a.trim()).filter(a => a);
+      if (!user?.id) {
+        throw new Error('User authentication required');
+      }
 
-      if (keywords.length === 0) throw new Error('At least one keyword is required');
-      if (authors.length === 0) throw new Error('At least one author is required');
-
+      // Prepare submission data
       const submissionData: ManuscriptSubmissionRequest = {
         title: formData.title.trim(),
         abstract: formData.abstract.trim(),
         content: formData.content.trim(),
-        keywords,
-        authors,
+        keywords: formData.keywords.split(',').map(k => k.trim()).filter(k => k),
+        authors: formData.authors.split(',').map(a => a.trim()).filter(a => a),
         corresponding_author: formData.corresponding_author.trim(),
         manuscript_type: formData.manuscript_type,
-        funding_information: formData.funding_information.trim() || undefined,
-        conflict_of_interest: formData.conflict_of_interest.trim() || undefined,
-        ethics_approval: formData.ethics_approval.trim() || undefined,
-        data_availability: formData.data_availability.trim() || undefined,
-        author_id: user?.id || 'demo-user-id', // Include the author ID
+        funding_information: formData.funding_information.trim(),
+        conflict_of_interest: formData.conflict_of_interest.trim(),
+        ethics_approval: formData.ethics_approval.trim(),
+        data_availability: formData.data_availability.trim(),
+        author_id: user.id
       };
 
-      await submitManuscript(submissionData);
+      console.log('Submitting manuscript:', { title: submissionData.title, author_id: submissionData.author_id });
+
+      // Submit the manuscript first
+      const response = await submitManuscript(submissionData);
+      console.log('Submission response:', response);
+
+      // If file is provided, upload it
+      let fileUrl = '';
+      if (formData.manuscript_file && response.submission?.id) {
+        try {
+          fileUrl = await uploadFile(formData.manuscript_file, response.submission.id);
+          console.log('File uploaded successfully:', fileUrl);
+        } catch (fileError) {
+          console.warn('File upload failed, but submission was successful:', fileError);
+          // Don't fail the entire submission if file upload fails
+        }
+      }
+
       setSuccess(true);
       setTimeout(() => {
         onSubmissionComplete();
       }, 2000);
 
-    } catch (err: any) {
-      setError(err.message || 'Failed to submit manuscript');
+    } catch (err) {
+      console.error('Submission error:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred during submission');
     } finally {
       setLoading(false);
     }
@@ -344,6 +403,54 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Describe data availability or sharing policies"
             />
+          </div>
+
+          {/* File Upload Section */}
+          <div>
+            <label htmlFor="manuscript_file" className="block text-sm font-medium text-gray-700 mb-2">
+              Manuscript File <span className="text-gray-500">(Optional)</span>
+            </label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <input
+                type="file"
+                id="manuscript_file"
+                name="manuscript_file"
+                accept=".pdf,.doc,.docx"
+                onChange={handleInputChange}
+                className="hidden"
+              />
+              <label 
+                htmlFor="manuscript_file" 
+                className="cursor-pointer flex flex-col items-center"
+              >
+                <svg className="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <span className="text-sm text-gray-600">
+                  {formData.manuscript_file 
+                    ? `Selected: ${formData.manuscript_file.name}` 
+                    : 'Click to upload manuscript file'}
+                </span>
+                <span className="text-xs text-gray-500 mt-1">
+                  PDF, DOC, or DOCX files up to 10MB
+                </span>
+              </label>
+            </div>
+            
+            {fileUploading && (
+              <div className="mt-3">
+                <div className="flex justify-between text-sm text-gray-600 mb-1">
+                  <span>Uploading...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

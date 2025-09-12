@@ -55,4 +55,13 @@ Thumbs.db
 uploads/
 temp/
 
+# Documentation and SQL files (temporary/generated)
+*.md
+!README.md
+!CONTRIBUTING.md
+!CHANGELOG.md
+*.sql
+!backend/database_schema.sql
+!src/database/schema.sql
+
 .kiro

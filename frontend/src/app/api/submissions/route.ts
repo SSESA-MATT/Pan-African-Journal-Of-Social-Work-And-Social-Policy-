@@ -47,7 +47,7 @@ const mockManuscripts = [
 let demoSubmissions: any[] = [];
 
 export async function GET(request: NextRequest) {
-  console.log('Starting GET /api/submissions request');
+  console.log('=== GET /api/submissions request started ===');
   
   try {
     // Get query parameters
@@ -55,10 +55,17 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     
     console.log('GET submissions - userId:', userId);
+    console.log('GET submissions - full URL:', request.url);
 
     // Check if Supabase is configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    console.log('Environment check:', {
+      supabaseUrl: supabaseUrl ? 'Set' : 'Missing',
+      supabaseKey: supabaseKey ? 'Set' : 'Missing',
+      nodeEnv: process.env.NODE_ENV
+    });
 
     if (!supabaseUrl || !supabaseKey) {
       console.log('Supabase not configured, returning mock data and demo submissions');
@@ -78,10 +85,12 @@ export async function GET(request: NextRequest) {
       // Combine mock manuscript with user's demo submissions
       const allManuscripts = [mockWithUserId, ...userSubmissions];
       console.log(`Returning ${allManuscripts.length} manuscripts for user ${userId}`);
+      console.log('Demo submissions count:', demoSubmissions.length);
+      
       return NextResponse.json(allManuscripts, { headers: corsHeaders() });
     }
 
-    // Try to connect to Supabase
+    // Connect to Supabase and fetch real data
     try {
       const supabase = createClient(supabaseUrl, supabaseKey);
       
@@ -148,15 +157,21 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('=== POST /api/submissions request started ===');
+  
   try {
     console.log('Processing manuscript submission...');
     
     const contentType = request.headers.get('content-type');
+    console.log('Content-Type:', contentType);
+    
     let submissionData: any = {};
     
     if (contentType?.includes('application/json')) {
       // Handle JSON submission (from ManuscriptSubmissionForm)
       const jsonData = await request.json();
+      console.log('Received JSON data:', { title: jsonData.title, author_id: jsonData.author_id });
+      
       submissionData = {
         title: jsonData.title,
         abstract: jsonData.abstract,
@@ -192,6 +207,12 @@ export async function POST(request: NextRequest) {
       };
     }
 
+    console.log('Processed submission data:', { 
+      title: submissionData.title, 
+      author_id: submissionData.author_id,
+      manuscriptType: submissionData.manuscriptType 
+    });
+
     // Validate required fields
     if (!submissionData.title || !submissionData.abstract) {
       return NextResponse.json(
@@ -204,15 +225,21 @@ export async function POST(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+    console.log('Environment check for POST:', {
+      supabaseUrl: supabaseUrl ? 'Set' : 'Missing',
+      supabaseKey: supabaseKey ? 'Set' : 'Missing',
+      nodeEnv: process.env.NODE_ENV
+    });
+
     if (!supabaseUrl || !supabaseKey) {
-      console.log('Supabase not configured, storing in demo mode');
+      console.log('Supabase not configured, using demo mode');
       
       // Create a demo submission
       const demoSubmission = {
         id: 'demo-' + Date.now(),
         title: submissionData.title,
         abstract: submissionData.abstract,
-        content: '',
+        content: submissionData.content || '',
         keywords: Array.isArray(submissionData.keywords) ? submissionData.keywords : submissionData.keywords?.split(',').map((k: string) => k.trim()) || [],
         authors: Array.isArray(submissionData.authors) ? submissionData.authors : submissionData.authors?.split(',').map((a: string) => a.trim()) || [],
         corresponding_author: submissionData.corresponding_author || '',
@@ -229,12 +256,17 @@ export async function POST(request: NextRequest) {
         word_count: submissionData.content ? submissionData.content.split(' ').length : 0,
         manuscript_file_url: submissionData.file ? `demo-file-${Date.now()}` : '',
         assigned_reviewers: [],
-        author_id: submissionData.author_id // Use the actual author ID
+        author_id: submissionData.author_id
       };
       
       // Store the submission
       demoSubmissions.push(demoSubmission);
-      console.log('Demo submission stored for author:', demoSubmission.author_id);
+      console.log('Demo submission stored:', {
+        id: demoSubmission.id,
+        title: demoSubmission.title,
+        author_id: demoSubmission.author_id
+      });
+      console.log('Total demo submissions now:', demoSubmissions.length);
       
       return NextResponse.json(
         { 
@@ -248,97 +280,132 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Connect to Supabase and save real data
     try {
       const supabase = createClient(supabaseUrl, supabaseKey);
-
-      // Handle file upload if present (for FormData submissions)
-      let fileUrl = null;
-      if (submissionData.file) {
-        const allowedTypes = [
-          'application/pdf',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        ];
-        
-        if (!allowedTypes.includes(submissionData.file.type)) {
-          return NextResponse.json(
-            { error: 'Invalid file type. Please upload a PDF or Word document.' },
-            { status: 400, headers: corsHeaders() }
-          );
-        }
-
-        const fileName = `${Date.now()}-${submissionData.file.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('manuscripts')
-          .upload(fileName, submissionData.file);
-
-        if (uploadError) {
-          console.error('File upload error:', uploadError);
-          // Continue without file URL rather than failing
-          fileUrl = null;
-        } else {
-          const { data: { publicUrl } } = supabase.storage
-            .from('manuscripts')
-            .getPublicUrl(fileName);
-          fileUrl = publicUrl;
-        }
-      }
-
-      // Prepare data for database insertion
-      const insertData = {
+      
+      // Map form data to database fields
+      const dbSubmission = {
         title: submissionData.title,
         abstract: submissionData.abstract,
-        keywords: submissionData.keywords || '',
-        manuscript_type: submissionData.manuscriptType || 'research',
+        co_authors: Array.isArray(submissionData.authors) ? submissionData.authors : submissionData.authors?.split(',').map((a: string) => a.trim()) || [],
+        keywords: Array.isArray(submissionData.keywords) ? submissionData.keywords : submissionData.keywords?.split(',').map((k: string) => k.trim()) || [],
         submission_type: submissionData.manuscriptType || 'research',
-        co_authors: submissionData.authors || '',
         corresponding_author: submissionData.corresponding_author || '',
         funding_statement: submissionData.funding_information || '',
-        conflict_of_interest: submissionData.conflict_of_interest || '',
+        conflict_of_interest: submissionData.conflict_of_interest || 'No conflicts declared',
         ethics_statement: submissionData.ethics_approval || '',
         data_availability: submissionData.data_availability || '',
-        manuscript_file_url: fileUrl,
-        author_id: 'temp-author-id', // TODO: Get from auth
+        manuscript_type: submissionData.manuscriptType || 'research',
         status: 'submitted',
         submission_date: new Date().toISOString(),
-        word_count: 0 // TODO: Calculate from content
+        author_id: submissionData.author_id,
+        word_count: submissionData.content ? submissionData.content.split(' ').length : 0,
+        manuscript_file_url: submissionData.file ? `file-${Date.now()}` : ''
       };
+
+      console.log('Inserting into database:', { title: dbSubmission.title, author_id: dbSubmission.author_id });
 
       const { data, error } = await supabase
         .from('submissions')
-        .insert([insertData])
+        .insert([dbSubmission])
         .select()
         .single();
 
       if (error) {
-        console.error('Database insertion error:', error);
-        // Return success even if database fails to keep UI working
+        console.error('Database insert error:', error);
+        
+        // Fall back to demo mode on database error
+        const demoSubmission = {
+          id: 'demo-' + Date.now(),
+          title: submissionData.title,
+          abstract: submissionData.abstract,
+          content: submissionData.content || '',
+          keywords: Array.isArray(submissionData.keywords) ? submissionData.keywords : submissionData.keywords?.split(',').map((k: string) => k.trim()) || [],
+          authors: Array.isArray(submissionData.authors) ? submissionData.authors : submissionData.authors?.split(',').map((a: string) => a.trim()) || [],
+          corresponding_author: submissionData.corresponding_author || '',
+          manuscript_type: submissionData.manuscriptType || 'research',
+          funding_information: submissionData.funding_information || '',
+          conflict_of_interest: submissionData.conflict_of_interest || '',
+          ethics_approval: submissionData.ethics_approval || '',
+          data_availability: submissionData.data_availability || '',
+          status: 'submitted',
+          submission_date: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          last_updated: new Date().toISOString(),
+          word_count: submissionData.content ? submissionData.content.split(' ').length : 0,
+          manuscript_file_url: submissionData.file ? `demo-file-${Date.now()}` : '',
+          assigned_reviewers: [],
+          author_id: submissionData.author_id
+        };
+
+        demoSubmissions.push(demoSubmission);
+        console.log('Fell back to demo mode due to database error');
+
         return NextResponse.json(
           { 
-            message: 'Manuscript submitted successfully (saved locally)',
-            id: 'local-' + Date.now(),
-            status: 'submitted'
+            success: true,
+            message: 'Manuscript submitted successfully (demo mode fallback)',
+            id: demoSubmission.id,
+            status: 'submitted',
+            submission: demoSubmission
           },
           { status: 201, headers: corsHeaders() }
         );
       }
 
+      console.log('Successfully saved to database:', { id: data.id, title: data.title });
+
       return NextResponse.json(
         { 
+          success: true,
           message: 'Manuscript submitted successfully',
           id: data.id,
-          status: data.status
+          status: 'submitted',
+          submission: data
         },
         { status: 201, headers: corsHeaders() }
       );
 
     } catch (dbError) {
       console.error('Database connection error:', dbError);
+      
+      // Fall back to demo mode
+      const demoSubmission = {
+        id: 'demo-' + Date.now(),
+        title: submissionData.title,
+        abstract: submissionData.abstract,
+        content: submissionData.content || '',
+        keywords: Array.isArray(submissionData.keywords) ? submissionData.keywords : submissionData.keywords?.split(',').map((k: string) => k.trim()) || [],
+        authors: Array.isArray(submissionData.authors) ? submissionData.authors : submissionData.authors?.split(',').map((a: string) => a.trim()) || [],
+        corresponding_author: submissionData.corresponding_author || '',
+        manuscript_type: submissionData.manuscriptType || 'research',
+        funding_information: submissionData.funding_information || '',
+        conflict_of_interest: submissionData.conflict_of_interest || '',
+        ethics_approval: submissionData.ethics_approval || '',
+        data_availability: submissionData.data_availability || '',
+        status: 'submitted',
+        submission_date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        last_updated: new Date().toISOString(),
+        word_count: submissionData.content ? submissionData.content.split(' ').length : 0,
+        manuscript_file_url: submissionData.file ? `demo-file-${Date.now()}` : '',
+        assigned_reviewers: [],
+        author_id: submissionData.author_id
+      };
+
+      demoSubmissions.push(demoSubmission);
+      console.log('Fell back to demo mode due to connection error');
+
       return NextResponse.json(
         { 
-          message: 'Manuscript submitted successfully (demo mode)',
-          id: 'demo-' + Date.now(),
-          status: 'submitted'
+          success: true,
+          message: 'Manuscript submitted successfully (demo mode fallback)',
+          id: demoSubmission.id,
+          status: 'submitted',
+          submission: demoSubmission
         },
         { status: 201, headers: corsHeaders() }
       );

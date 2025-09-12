@@ -25,7 +25,12 @@ const API_BASE = process.env.NODE_ENV === 'production'
   : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 // Author-related API functions
-export async function submitManuscript(manuscriptData: ManuscriptSubmissionRequest): Promise<Manuscript> {
+export async function submitManuscript(manuscriptData: ManuscriptSubmissionRequest): Promise<{
+  success: boolean;
+  message: string;
+  submission?: Manuscript;
+  id?: string;
+}> {
   const token = getAuthToken();
   // Use the existing submissions endpoint that works in production
   const response = await fetch(`${API_BASE}/submissions`, {
