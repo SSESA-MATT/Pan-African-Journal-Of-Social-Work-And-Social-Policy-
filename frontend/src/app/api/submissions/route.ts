@@ -68,26 +68,8 @@ export async function GET(request: NextRequest) {
     });
 
     if (!supabaseUrl || !supabaseKey) {
-      console.log('Supabase not configured, returning mock data and demo submissions');
-      
-      // Always include the mock manuscript for any user in demo mode
-      const mockWithUserId = {
-        ...mockManuscripts[0],
-        author_id: userId || 'demo-user-id'
-      };
-      
-      // Filter demo submissions by user if userId is provided
-      let userSubmissions = demoSubmissions;
-      if (userId) {
-        userSubmissions = demoSubmissions.filter(sub => sub.author_id === userId);
-      }
-      
-      // Combine mock manuscript with user's demo submissions
-      const allManuscripts = [mockWithUserId, ...userSubmissions];
-      console.log(`Returning ${allManuscripts.length} manuscripts for user ${userId}`);
-      console.log('Demo submissions count:', demoSubmissions.length);
-      
-      return NextResponse.json(allManuscripts, { headers: corsHeaders() });
+      console.error('Server configuration error: Supabase URL or Key is missing.');
+      return NextResponse.json({ error: 'Server is not configured to connect to the database.' }, { status: 500, headers: corsHeaders() });
     }
 
     // Connect to Supabase and fetch real data
@@ -107,9 +89,8 @@ export async function GET(request: NextRequest) {
         .limit(10);
 
       if (error) {
-        console.error('Database error:', error);
-        console.log('Falling back to mock data due to database error');
-        return NextResponse.json(mockManuscripts, { headers: corsHeaders() });
+        console.error('Database GET error:', error);
+        return NextResponse.json({ error: 'Failed to fetch submissions from the database.', details: error.message }, { status: 500, headers: corsHeaders() });
       }
 
       console.log(`Found ${submissions?.length || 0} submissions for user ${userId}`);
@@ -143,16 +124,14 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json(manuscripts, { headers: corsHeaders() });
 
-    } catch (dbError) {
+    } catch (dbError: any) {
       console.error('Database connection error:', dbError);
-      console.log('Falling back to mock data due to connection error');
-      return NextResponse.json(mockManuscripts, { headers: corsHeaders() });
+      return NextResponse.json({ error: 'Database connection failed.', details: dbError.message }, { status: 500, headers: corsHeaders() });
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET submissions error:', error);
-    // Even if there's an error, return mock data to keep the UI working
-    return NextResponse.json(mockManuscripts, { headers: corsHeaders() });
+    return NextResponse.json({ error: 'An unexpected error occurred while fetching submissions.', details: error.message }, { status: 500, headers: corsHeaders() });
   }
 }
 
@@ -232,52 +211,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (!supabaseUrl || !supabaseKey) {
-      console.log('Supabase not configured, using demo mode');
-      
-      // Create a demo submission
-      const demoSubmission = {
-        id: 'demo-' + Date.now(),
-        title: submissionData.title,
-        abstract: submissionData.abstract,
-        content: submissionData.content || '',
-        keywords: Array.isArray(submissionData.keywords) ? submissionData.keywords : submissionData.keywords?.split(',').map((k: string) => k.trim()) || [],
-        authors: Array.isArray(submissionData.authors) ? submissionData.authors : submissionData.authors?.split(',').map((a: string) => a.trim()) || [],
-        corresponding_author: submissionData.corresponding_author || '',
-        manuscript_type: submissionData.manuscriptType || 'research',
-        funding_information: submissionData.funding_information || '',
-        conflict_of_interest: submissionData.conflict_of_interest || '',
-        ethics_approval: submissionData.ethics_approval || '',
-        data_availability: submissionData.data_availability || '',
-        status: 'submitted',
-        submission_date: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        last_updated: new Date().toISOString(),
-        word_count: submissionData.content ? submissionData.content.split(' ').length : 0,
-        manuscript_file_url: submissionData.file ? `demo-file-${Date.now()}` : '',
-        assigned_reviewers: [],
-        author_id: submissionData.author_id
-      };
-      
-      // Store the submission
-      demoSubmissions.push(demoSubmission);
-      console.log('Demo submission stored:', {
-        id: demoSubmission.id,
-        title: demoSubmission.title,
-        author_id: demoSubmission.author_id
-      });
-      console.log('Total demo submissions now:', demoSubmissions.length);
-      
-      return NextResponse.json(
-        { 
-          success: true,
-          message: 'Manuscript submitted successfully (demo mode)',
-          id: demoSubmission.id,
-          status: 'submitted',
-          submission: demoSubmission
-        },
-        { status: 201, headers: corsHeaders() }
-      );
+      console.error('Server configuration error: Supabase URL or Key is missing.');
+      return NextResponse.json({ error: 'Server is not configured to connect to the database.' }, { status: 500, headers: corsHeaders() });
     }
 
     // Connect to Supabase and save real data
@@ -314,45 +249,7 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         console.error('Database insert error:', error);
-        
-        // Fall back to demo mode on database error
-        const demoSubmission = {
-          id: 'demo-' + Date.now(),
-          title: submissionData.title,
-          abstract: submissionData.abstract,
-          content: submissionData.content || '',
-          keywords: Array.isArray(submissionData.keywords) ? submissionData.keywords : submissionData.keywords?.split(',').map((k: string) => k.trim()) || [],
-          authors: Array.isArray(submissionData.authors) ? submissionData.authors : submissionData.authors?.split(',').map((a: string) => a.trim()) || [],
-          corresponding_author: submissionData.corresponding_author || '',
-          manuscript_type: submissionData.manuscriptType || 'research',
-          funding_information: submissionData.funding_information || '',
-          conflict_of_interest: submissionData.conflict_of_interest || '',
-          ethics_approval: submissionData.ethics_approval || '',
-          data_availability: submissionData.data_availability || '',
-          status: 'submitted',
-          submission_date: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          last_updated: new Date().toISOString(),
-          word_count: submissionData.content ? submissionData.content.split(' ').length : 0,
-          manuscript_file_url: submissionData.file ? `demo-file-${Date.now()}` : '',
-          assigned_reviewers: [],
-          author_id: submissionData.author_id
-        };
-
-        demoSubmissions.push(demoSubmission);
-        console.log('Fell back to demo mode due to database error');
-
-        return NextResponse.json(
-          { 
-            success: true,
-            message: 'Manuscript submitted successfully (demo mode fallback)',
-            id: demoSubmission.id,
-            status: 'submitted',
-            submission: demoSubmission
-          },
-          { status: 201, headers: corsHeaders() }
-        );
+        return NextResponse.json({ error: 'Database insert failed.', details: error }, { status: 500, headers: corsHeaders() });
       }
 
       console.log('Successfully saved to database:', { id: data.id, title: data.title });
@@ -368,53 +265,15 @@ export async function POST(request: NextRequest) {
         { status: 201, headers: corsHeaders() }
       );
 
-    } catch (dbError) {
-      console.error('Database connection error:', dbError);
-      
-      // Fall back to demo mode
-      const demoSubmission = {
-        id: 'demo-' + Date.now(),
-        title: submissionData.title,
-        abstract: submissionData.abstract,
-        content: submissionData.content || '',
-        keywords: Array.isArray(submissionData.keywords) ? submissionData.keywords : submissionData.keywords?.split(',').map((k: string) => k.trim()) || [],
-        authors: Array.isArray(submissionData.authors) ? submissionData.authors : submissionData.authors?.split(',').map((a: string) => a.trim()) || [],
-        corresponding_author: submissionData.corresponding_author || '',
-        manuscript_type: submissionData.manuscriptType || 'research',
-        funding_information: submissionData.funding_information || '',
-        conflict_of_interest: submissionData.conflict_of_interest || '',
-        ethics_approval: submissionData.ethics_approval || '',
-        data_availability: submissionData.data_availability || '',
-        status: 'submitted',
-        submission_date: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        last_updated: new Date().toISOString(),
-        word_count: submissionData.content ? submissionData.content.split(' ').length : 0,
-        manuscript_file_url: submissionData.file ? `demo-file-${Date.now()}` : '',
-        assigned_reviewers: [],
-        author_id: submissionData.author_id
-      };
-
-      demoSubmissions.push(demoSubmission);
-      console.log('Fell back to demo mode due to connection error');
-
-      return NextResponse.json(
-        { 
-          success: true,
-          message: 'Manuscript submitted successfully (demo mode fallback)',
-          id: demoSubmission.id,
-          status: 'submitted',
-          submission: demoSubmission
-        },
-        { status: 201, headers: corsHeaders() }
-      );
+    } catch (dbError: any) {
+      console.error('Database connection error during POST:', dbError);
+      return NextResponse.json({ error: 'Database connection failed.', details: dbError.message }, { status: 500, headers: corsHeaders() });
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST submissions error:', error);
     return NextResponse.json(
-      { error: 'Failed to process submission' },
+      { error: 'Failed to process submission', details: error.message },
       { status: 500, headers: corsHeaders() }
     );
   }
