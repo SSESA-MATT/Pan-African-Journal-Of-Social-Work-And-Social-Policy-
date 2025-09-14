@@ -231,7 +231,6 @@ export async function POST(request: NextRequest) {
         conflict_of_interest: submissionData.conflict_of_interest || 'No conflicts declared',
         ethics_statement: submissionData.ethics_approval || '',
         data_availability: submissionData.data_availability || '',
-        manuscript_type: submissionData.manuscriptType || 'research',
         status: 'submitted',
         submission_date: new Date().toISOString(),
         author_id: submissionData.author_id,
