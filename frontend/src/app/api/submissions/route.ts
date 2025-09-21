@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -17,117 +18,63 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 200, headers: corsHeaders() });
 }
 
-// Mock data for when database is not available
-const mockManuscripts = [
-  {
-    id: '1',
-    title: 'Sample Manuscript 1',
-    abstract: 'This is a sample abstract for testing purposes.',
-    content: '',
-    keywords: ['social work', 'policy', 'africa'],
-    authors: ['Dr. John Doe', 'Prof. Jane Smith'],
-    corresponding_author: 'john.doe@university.edu',
-    manuscript_type: 'research',
-    funding_information: 'This research was funded by XYZ Foundation.',
-    conflict_of_interest: 'The authors declare no conflict of interest.',
-    ethics_approval: 'Ethics approval obtained from IRB #123.',
-    data_availability: 'Data available upon request.',
-    status: 'submitted',
-    submission_date: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    last_updated: new Date().toISOString(),
-    word_count: 5000,
-    manuscript_file_url: '',
-    assigned_reviewers: []
-  }
-];
-
-// In-memory storage for demo submissions (in production, this would be in database)
-let demoSubmissions: any[] = [];
-
 export async function GET(request: NextRequest) {
-  console.log('=== GET /api/submissions request started ===');
+  console.log('=== SECURE GET /api/submissions request started ===');
   
   try {
-    // Get query parameters
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    
-    console.log('GET submissions - userId:', userId);
-    console.log('GET submissions - full URL:', request.url);
+    const supabase = createRouteHandlerClient({ cookies });
 
-    // Check if Supabase is configured
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // Get the current user session to identify the user
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401, headers: corsHeaders() });
+    }
+    const userId = session.user.id;
+    console.log('Fetching submissions for secure user ID:', userId);
 
-    console.log('Environment check:', {
-      supabaseUrl: supabaseUrl ? 'Set' : 'Missing',
-      supabaseKey: supabaseKey ? 'Set' : 'Missing',
-      nodeEnv: process.env.NODE_ENV
-    });
+    // Fetch submissions for the authenticated user
+    const { data: submissions, error } = await supabase
+      .from('submissions')
+      .select('*')
+      .eq('author_id', userId)
+      .order('created_at', { ascending: false });
 
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('Server configuration error: Supabase URL or Key is missing.');
-      return NextResponse.json({ error: 'Server is not configured to connect to the database.' }, { status: 500, headers: corsHeaders() });
+    if (error) {
+      console.error('Database GET error:', error);
+      return NextResponse.json({ error: 'Failed to fetch submissions.', details: error.message }, { status: 500, headers: corsHeaders() });
     }
 
-    // Connect to Supabase and fetch real data
-    try {
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      
-      let query = supabase
-        .from('submissions')
-        .select('*');
-      
-      if (userId) {
-        query = query.eq('author_id', userId);
-      }
-      
-      const { data: submissions, error } = await query
-        .order('created_at', { ascending: false })
-        .limit(10);
+    console.log(`Found ${submissions?.length || 0} submissions for user ${userId}`);
 
-      if (error) {
-        console.error('Database GET error:', error);
-        return NextResponse.json({ error: 'Failed to fetch submissions from the database.', details: error.message }, { status: 500, headers: corsHeaders() });
-      }
-
-      console.log(`Found ${submissions?.length || 0} submissions for user ${userId}`);
-
-      if (!submissions || submissions.length === 0) {
-        return NextResponse.json([], { headers: corsHeaders() });
-      }
-
-      const manuscripts = submissions.map(submission => ({
-        id: submission.id,
-        title: submission.title || 'Untitled',
-        abstract: submission.abstract || '',
-        content: '',
-        keywords: Array.isArray(submission.keywords) ? submission.keywords : [],
-        authors: Array.isArray(submission.co_authors) ? submission.co_authors : [],
-        corresponding_author: submission.corresponding_author || '',
-        manuscript_type: submission.submission_type || submission.manuscript_type || 'research',
-        funding_information: submission.funding_statement || '',
-        conflict_of_interest: submission.conflict_of_interest || '',
-        ethics_approval: submission.ethics_statement || '',
-        data_availability: submission.data_availability || '',
-        status: submission.status || 'submitted',
-        submission_date: submission.submission_date || submission.created_at,
-        created_at: submission.created_at,
-        updated_at: submission.updated_at || submission.created_at,
-        last_updated: submission.updated_at || submission.created_at,
-        word_count: Number(submission.word_count) || 0,
-        manuscript_file_url: submission.manuscript_file_url || '',
-        assigned_reviewers: []
-      }));
-
-      return NextResponse.json(manuscripts, { headers: corsHeaders() });
-
-    } catch (dbError: any) {
-      console.error('Database connection error:', dbError);
-      return NextResponse.json({ error: 'Database connection failed.', details: dbError.message }, { status: 500, headers: corsHeaders() });
+    if (!submissions) {
+      return NextResponse.json([], { headers: corsHeaders() });
     }
+
+    // Map to the format expected by the frontend
+    const manuscripts = submissions.map((submission: any) => ({
+      id: submission.id,
+      title: submission.title || 'Untitled',
+      abstract: submission.abstract || '',
+      content: '',
+      keywords: Array.isArray(submission.keywords) ? submission.keywords : [],
+      authors: Array.isArray(submission.co_authors) ? submission.co_authors : [],
+      corresponding_author: submission.corresponding_author || '',
+      manuscript_type: submission.submission_type || 'research',
+      funding_information: submission.funding_statement || '',
+      conflict_of_interest: submission.conflict_of_interest || '',
+      ethics_approval: submission.ethics_statement || '',
+      data_availability: submission.data_availability || '',
+      status: submission.status || 'submitted',
+      submission_date: submission.submission_date || submission.created_at,
+      created_at: submission.created_at,
+      updated_at: submission.updated_at || submission.created_at,
+      last_updated: submission.updated_at || submission.created_at,
+      word_count: Number(submission.word_count) || 0,
+      manuscript_file_url: submission.manuscript_file_url || '',
+      assigned_reviewers: []
+    }));
+
+    return NextResponse.json(manuscripts, { headers: corsHeaders() });
 
   } catch (error: any) {
     console.error('GET submissions error:', error);
@@ -136,138 +83,74 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('=== POST /api/submissions request started ===');
+  console.log('=== SECURE POST /api/submissions request started ===');
   
   try {
-    console.log('Processing manuscript submission...');
+    const supabase = createRouteHandlerClient({ cookies });
     
-    const contentType = request.headers.get('content-type');
-    console.log('Content-Type:', contentType);
-    
-    let submissionData: any = {};
-    
-    if (contentType?.includes('application/json')) {
-      // Handle JSON submission (from ManuscriptSubmissionForm)
-      const jsonData = await request.json();
-      console.log('Received JSON data:', { title: jsonData.title, author_id: jsonData.author_id });
-      
-      submissionData = {
-        title: jsonData.title,
-        abstract: jsonData.abstract,
-        keywords: Array.isArray(jsonData.keywords) ? jsonData.keywords.join(', ') : jsonData.keywords,
-        manuscriptType: jsonData.manuscript_type || 'research',
-        authors: Array.isArray(jsonData.authors) ? jsonData.authors.join(', ') : jsonData.authors,
-        corresponding_author: jsonData.corresponding_author,
-        content: jsonData.content,
-        funding_information: jsonData.funding_information,
-        conflict_of_interest: jsonData.conflict_of_interest,
-        ethics_approval: jsonData.ethics_approval,
-        data_availability: jsonData.data_availability,
-        file: null, // No file in JSON submissions for now
-        author_id: jsonData.author_id || 'demo-user-id' // Get author ID from request
-      };
-    } else {
-      // Handle FormData submission (from regular SubmissionForm)
-      const formData = await request.formData();
-      submissionData = {
-        title: formData.get('title') as string,
-        abstract: formData.get('abstract') as string,
-        keywords: formData.get('keywords') as string,
-        manuscriptType: formData.get('manuscriptType') as string,
-        file: formData.get('manuscript') as File,
-        authors: '', // FormData doesn't have this field yet
-        corresponding_author: '',
-        content: '',
-        funding_information: formData.get('funding') as string,
-        conflict_of_interest: formData.get('conflictOfInterest') as string,
-        ethics_approval: formData.get('ethicsStatement') as string,
-        data_availability: '',
-        author_id: (formData.get('author_id') as string) || 'demo-user-id'
-      };
+    // Get the current user session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      console.error('Session error:', sessionError.message);
+      return NextResponse.json({ error: 'Failed to get user session.', details: sessionError.message }, { status: 500, headers: corsHeaders() });
     }
 
-    console.log('Processed submission data:', { 
-      title: submissionData.title, 
-      author_id: submissionData.author_id,
-      manuscriptType: submissionData.manuscriptType 
-    });
-
-    // Validate required fields
-    if (!submissionData.title || !submissionData.abstract) {
-      return NextResponse.json(
-        { error: 'Missing required fields: title and abstract are required' },
-        { status: 400, headers: corsHeaders() }
-      );
+    if (!session) {
+      console.error('No active session found. User is not authenticated.');
+      return NextResponse.json({ error: 'Authentication required. Please log in.' }, { status: 401, headers: corsHeaders() });
     }
 
-    // Check if Supabase is configured
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const secureUserId = session.user.id;
+    console.log('Secure user ID from session:', secureUserId);
 
-    console.log('Environment check for POST:', {
-      supabaseUrl: supabaseUrl ? 'Set' : 'Missing',
-      supabaseKey: supabaseKey ? 'Set' : 'Missing',
-      nodeEnv: process.env.NODE_ENV
-    });
+    const jsonData = await request.json();
+    console.log('Received JSON data:', { title: jsonData.title });
 
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('Server configuration error: Supabase URL or Key is missing.');
-      return NextResponse.json({ error: 'Server is not configured to connect to the database.' }, { status: 500, headers: corsHeaders() });
+    // Map form data to database fields, using the SECURE user ID
+    const dbSubmission = {
+      title: jsonData.title,
+      abstract: jsonData.abstract,
+      co_authors: Array.isArray(jsonData.authors) ? jsonData.authors : jsonData.authors?.split(',').map((a: string) => a.trim()) || [],
+      keywords: Array.isArray(jsonData.keywords) ? jsonData.keywords : jsonData.keywords?.split(',').map((k: string) => k.trim()) || [],
+      submission_type: jsonData.manuscript_type || 'research',
+      corresponding_author: jsonData.corresponding_author || '',
+      funding_statement: jsonData.funding_information || '',
+      conflict_of_interest: jsonData.conflict_of_interest || 'No conflicts declared',
+      ethics_statement: jsonData.ethics_approval || '',
+      data_availability: jsonData.data_availability || '',
+      status: 'submitted',
+      submission_date: new Date().toISOString(),
+      author_id: secureUserId, // Use the secure ID from the session
+      word_count: jsonData.content ? jsonData.content.split(' ').length : 0,
+      manuscript_file_url: '' // File URL will be handled separately
+    };
+
+    console.log('Inserting into database with secure author_id:', { title: dbSubmission.title, author_id: dbSubmission.author_id });
+
+    const { data, error } = await supabase
+      .from('submissions')
+      .insert([dbSubmission])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Database insert error:', error);
+      return NextResponse.json({ error: 'Database insert failed.', details: error }, { status: 500, headers: corsHeaders() });
     }
 
-    // Connect to Supabase and save real data
-    try {
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      
-      // Map form data to database fields
-      const dbSubmission = {
-        title: submissionData.title,
-        abstract: submissionData.abstract,
-        co_authors: Array.isArray(submissionData.authors) ? submissionData.authors : submissionData.authors?.split(',').map((a: string) => a.trim()) || [],
-        keywords: Array.isArray(submissionData.keywords) ? submissionData.keywords : submissionData.keywords?.split(',').map((k: string) => k.trim()) || [],
-        submission_type: submissionData.manuscriptType || 'research',
-        corresponding_author: submissionData.corresponding_author || '',
-        funding_statement: submissionData.funding_information || '',
-        conflict_of_interest: submissionData.conflict_of_interest || 'No conflicts declared',
-        ethics_statement: submissionData.ethics_approval || '',
-        data_availability: submissionData.data_availability || '',
+    console.log('Successfully saved to database:', { id: data.id, title: data.title });
+
+    return NextResponse.json(
+      { 
+        success: true,
+        message: 'Manuscript submitted successfully',
+        id: data.id,
         status: 'submitted',
-        submission_date: new Date().toISOString(),
-        author_id: submissionData.author_id,
-        word_count: submissionData.content ? submissionData.content.split(' ').length : 0,
-        manuscript_file_url: submissionData.file ? `file-${Date.now()}` : ''
-      };
-
-      console.log('Inserting into database:', { title: dbSubmission.title, author_id: dbSubmission.author_id });
-
-      const { data, error } = await supabase
-        .from('submissions')
-        .insert([dbSubmission])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Database insert error:', error);
-        return NextResponse.json({ error: 'Database insert failed.', details: error }, { status: 500, headers: corsHeaders() });
-      }
-
-      console.log('Successfully saved to database:', { id: data.id, title: data.title });
-
-      return NextResponse.json(
-        { 
-          success: true,
-          message: 'Manuscript submitted successfully',
-          id: data.id,
-          status: 'submitted',
-          submission: data
-        },
-        { status: 201, headers: corsHeaders() }
-      );
-
-    } catch (dbError: any) {
-      console.error('Database connection error during POST:', dbError);
-      return NextResponse.json({ error: 'Database connection failed.', details: dbError.message }, { status: 500, headers: corsHeaders() });
-    }
+        submission: data
+      },
+      { status: 201, headers: corsHeaders() }
+    );
 
   } catch (error: any) {
     console.error('POST submissions error:', error);

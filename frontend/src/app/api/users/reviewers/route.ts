@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 // Add CORS headers
 function corsHeaders() {
@@ -23,7 +19,18 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: NextRequest) {
+  console.log('=== SECURE GET /api/users/reviewers request started ===');
+  
   try {
+    const supabase = createRouteHandlerClient({ cookies });
+
+    // Get the current user session to ensure they're authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401, headers: corsHeaders() });
+    }
+
+    // TODO: Add role check to ensure user is admin or has permission to view reviewers
     console.log('Fetching reviewers...');
 
     // Get all users with reviewer role
@@ -45,13 +52,13 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error fetching reviewers:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch reviewers' },
+        { error: 'Failed to fetch reviewers', details: error.message },
         { status: 500, headers: corsHeaders() }
       );
     }
 
     // Transform reviewer data
-    const transformedReviewers = (reviewers || []).map(reviewer => ({
+    const transformedReviewers = (reviewers || []).map((reviewer: any) => ({
       id: reviewer.id,
       name: `${reviewer.first_name} ${reviewer.last_name}`,
       email: reviewer.email,

@@ -57,8 +57,8 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
     try {
       const uploadFormData = new FormData();
       uploadFormData.append('file', file);
-      uploadFormData.append('authorId', user?.id || 'anonymous');
       uploadFormData.append('submissionId', submissionId);
+      // Note: authorId is no longer needed as it's extracted from the authenticated session
 
       const response = await fetch('/api/upload', {
         method: 'POST',

@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 // Add CORS headers
 function corsHeaders() {
@@ -23,7 +19,18 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: NextRequest) {
+  console.log('=== SECURE GET /api/reviews/dashboard request started ===');
+  
   try {
+    const supabase = createRouteHandlerClient({ cookies });
+
+    // Get the current user session to ensure they're authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401, headers: corsHeaders() });
+    }
+
+    // TODO: Add role check to ensure user is a reviewer or admin
     console.log('Fetching reviewer dashboard data from database...');
     
     // Fetch all submissions that need review (prioritize real users over test data)
@@ -46,12 +53,14 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching submissions:', submissionsError);
       return NextResponse.json(
         { error: 'Failed to fetch submissions', details: submissionsError.message },
-        { status: 500 }
+        { status: 500, headers: corsHeaders() }
       );
     }
 
+    console.log(`Found ${submissions?.length || 0} submissions for review`);
+
     // Transform submissions for pending reviews
-    const pendingReviews = (submissions || []).map(submission => {
+    const pendingReviews = (submissions || []).map((submission: any) => {
       const user = Array.isArray(submission.users) ? submission.users[0] : submission.users;
       return {
         id: `pending-${submission.id}`,

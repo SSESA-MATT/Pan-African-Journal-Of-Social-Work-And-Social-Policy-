@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CloudinaryService } from '@/lib/cloudinary';
-import { createClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 function corsHeaders() {
   return {
@@ -16,12 +17,22 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('=== File Upload API Called ===');
+  console.log('=== SECURE File Upload API Called ===');
   
   try {
+    const supabase = createRouteHandlerClient({ cookies });
+
+    // Get the current user session to ensure they're authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401, headers: corsHeaders() });
+    }
+
+    const secureUserId = session.user.id;
+    console.log('Secure user ID from session:', secureUserId);
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const authorId = formData.get('authorId') as string;
     const submissionId = formData.get('submissionId') as string;
 
     if (!file) {
@@ -31,18 +42,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!authorId) {
-      return NextResponse.json(
-        { error: 'Author ID is required' },
-        { status: 400, headers: corsHeaders() }
-      );
-    }
-
     console.log('File upload details:', {
       filename: file.name,
       size: file.size,
       type: file.type,
-      authorId,
+      userId: secureUserId,
       submissionId
     });
 
@@ -78,7 +82,7 @@ export async function POST(request: NextRequest) {
     if (!cloudinaryConfigured) {
       console.log('Cloudinary not configured, returning mock file URL');
       
-      const mockFileUrl = `https://demo-storage.example.com/manuscripts/${authorId}/${Date.now()}_${file.name}`;
+      const mockFileUrl = `https://demo-storage.example.com/manuscripts/${secureUserId}/${Date.now()}_${file.name}`;
       
       return NextResponse.json({
         success: true,
@@ -101,7 +105,7 @@ export async function POST(request: NextRequest) {
       const uploadResult = await CloudinaryService.uploadManuscript(
         buffer,
         file.name,
-        authorId
+        secureUserId
       );
 
       console.log('Cloudinary upload successful:', {
@@ -110,20 +114,16 @@ export async function POST(request: NextRequest) {
       });
 
       // Update the submission in database with file URL
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-      if (supabaseUrl && supabaseKey && submissionId) {
+      if (submissionId) {
         try {
-          const supabase = createClient(supabaseUrl, supabaseKey);
-          
           const { error } = await supabase
             .from('submissions')
             .update({ 
               manuscript_file_url: uploadResult.secureUrl,
               manuscript_file_public_id: uploadResult.publicId
             })
-            .eq('id', submissionId);
+            .eq('id', submissionId)
+            .eq('author_id', secureUserId); // Ensure user can only update their own submissions
 
           if (error) {
             console.error('Failed to update submission with file URL:', error);
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
       console.error('Cloudinary upload error:', uploadError);
       
       // Fallback to mock storage
-      const mockFileUrl = `https://demo-storage.example.com/manuscripts/${authorId}/${Date.now()}_${file.name}`;
+      const mockFileUrl = `https://demo-storage.example.com/manuscripts/${secureUserId}/${Date.now()}_${file.name}`;
       
       return NextResponse.json({
         success: true,

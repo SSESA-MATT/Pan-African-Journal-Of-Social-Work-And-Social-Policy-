@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 // Add CORS headers
 function corsHeaders() {
@@ -26,7 +22,17 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { manuscriptId: string } }
 ) {
+  console.log('=== SECURE GET manuscript by ID request started ===');
+  
   try {
+    const supabase = createRouteHandlerClient({ cookies });
+
+    // Get the current user session to ensure they're authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401, headers: corsHeaders() });
+    }
+
     const manuscriptId = params.manuscriptId;
     console.log(`Fetching manuscript: ${manuscriptId}`);
 
@@ -98,7 +104,18 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: { manuscriptId: string } }
 ) {
+  console.log('=== SECURE PUT manuscript by ID request started ===');
+  
   try {
+    const supabase = createRouteHandlerClient({ cookies });
+
+    // Get the current user session to ensure they're authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401, headers: corsHeaders() });
+    }
+
+    const secureUserId = session.user.id;
     const manuscriptId = params.manuscriptId;
     const body = await request.json();
     
@@ -118,6 +135,7 @@ export async function PUT(
       .from('submissions')
       .update(updateData)
       .eq('id', manuscriptId)
+      .eq('author_id', secureUserId) // Ensure user can only update their own manuscripts
       .select()
       .single();
 
@@ -147,19 +165,31 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { manuscriptId: string } }
 ) {
+  console.log('=== SECURE DELETE manuscript by ID request started ===');
+  
   try {
+    const supabase = createRouteHandlerClient({ cookies });
+
+    // Get the current user session to ensure they're authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401, headers: corsHeaders() });
+    }
+
+    const secureUserId = session.user.id;
     const manuscriptId = params.manuscriptId;
     console.log(`Deleting manuscript: ${manuscriptId}`);
 
     const { error } = await supabase
       .from('submissions')
       .delete()
-      .eq('id', manuscriptId);
+      .eq('id', manuscriptId)
+      .eq('author_id', secureUserId); // Ensure user can only delete their own manuscripts
 
     if (error) {
       console.error('Error deleting manuscript:', error);
       return NextResponse.json(
-        { error: 'Failed to delete manuscript' },
+        { error: 'Failed to delete manuscript', details: error.message },
         { status: 500, headers: corsHeaders() }
       );
     }
@@ -169,7 +199,7 @@ export async function DELETE(
       { headers: corsHeaders() }
     );
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('DELETE manuscript error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 // Add CORS headers
 function corsHeaders() {
@@ -23,7 +19,19 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: NextRequest) {
+  console.log('=== SECURE Admin GET /api/manuscripts/admin/all request started ===');
+  
   try {
+    const supabase = createRouteHandlerClient({ cookies });
+
+    // Get the current user session to ensure they're authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401, headers: corsHeaders() });
+    }
+
+    // TODO: Add role check to ensure user is admin
+    // For now, we'll allow any authenticated user, but in production this should be restricted
     console.log('Fetching all manuscripts for admin...');
 
     // Get all manuscripts with author info for admin view
@@ -38,13 +46,13 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error fetching admin manuscripts:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch manuscripts' },
+        { error: 'Failed to fetch manuscripts', details: error.message },
         { status: 500, headers: corsHeaders() }
       );
     }
 
     // Transform to admin manuscript format with author details
-    const manuscripts = (submissions || []).map(submission => {
+    const manuscripts = (submissions || []).map((submission: any) => {
       const user = Array.isArray(submission.users) ? submission.users[0] : submission.users;
       return {
         id: submission.id,
