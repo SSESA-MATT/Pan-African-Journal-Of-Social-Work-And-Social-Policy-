@@ -20,10 +20,10 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
   const [formData, setFormData] = useState({
     title: '',
     abstract: '',
-    content: '',
     keywords: '',
     authors: '',
     corresponding_author: '',
+    research_areas: '',
     manuscript_type: 'research' as const,
     funding_information: '',
     conflict_of_interest: '',
@@ -90,8 +90,9 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
       // Validate required fields
       if (!formData.title.trim()) throw new Error('Title is required');
       if (!formData.abstract.trim()) throw new Error('Abstract is required');
-      if (!formData.content.trim()) throw new Error('Content is required');
+      if (!formData.manuscript_file) throw new Error('Manuscript file is required');
       if (!formData.authors.trim()) throw new Error('Authors are required');
+      if (!formData.research_areas.trim()) throw new Error('Research areas are required');
 
       if (!user?.id) {
         throw new Error('User authentication required');
@@ -101,7 +102,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
       const submissionData: ManuscriptSubmissionRequest = {
         title: formData.title.trim(),
         abstract: formData.abstract.trim(),
-        content: formData.content.trim(),
+        content: '', // Content will be in the uploaded file
         keywords: formData.keywords.split(',').map(k => k.trim()).filter(k => k),
         authors: formData.authors.split(',').map(a => a.trim()).filter(a => a),
         corresponding_author: formData.corresponding_author.trim(),
@@ -110,6 +111,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
         conflict_of_interest: formData.conflict_of_interest.trim(),
         ethics_approval: formData.ethics_approval.trim(),
         data_availability: formData.data_availability.trim(),
+        research_areas: formData.research_areas.trim(),
         author_id: user.id
       };
 
@@ -119,15 +121,15 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
       const response = await submitManuscript(submissionData);
       console.log('Submission response:', response);
 
-      // If file is provided, upload it
+      // Upload the manuscript file (now required)
       let fileUrl = '';
       if (formData.manuscript_file && response.submission?.id) {
         try {
           fileUrl = await uploadFile(formData.manuscript_file, response.submission.id);
           console.log('File uploaded successfully:', fileUrl);
         } catch (fileError) {
-          console.warn('File upload failed, but submission was successful:', fileError);
-          // Don't fail the entire submission if file upload fails
+          console.error('File upload failed:', fileError);
+          throw new Error('Failed to upload manuscript file. Please try again.');
         }
       }
 
@@ -234,6 +236,9 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
             >
               <option value="research">Original Research</option>
               <option value="review">Review Article</option>
+              <option value="policy-brief">Policy Brief</option>
+              <option value="practice-note">Practice Note</option>
+              <option value="student-voice">Student Voice</option>
               <option value="case-study">Case Study</option>
               <option value="commentary">Commentary</option>
               <option value="brief-communication">Brief Communication</option>
@@ -277,6 +282,25 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
               Separate keywords with commas. Recommended: 3-6 keywords.
             </p>
           </div>
+
+          <div>
+            <label htmlFor="research_areas" className="block text-sm font-medium text-gray-700 mb-2">
+              List up to 5 areas of research focus *
+            </label>
+            <input
+              type="text"
+              id="research_areas"
+              name="research_areas"
+              value={formData.research_areas}
+              onChange={handleInputChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter your research focus areas separated by commas (e.g., decolonial social work, community development, mental health, social policy)"
+            />
+            <p className="mt-2 text-sm text-gray-500">
+              List your main areas of research focus, up to 5 areas.
+            </p>
+          </div>
         </div>
 
         {/* Authors */}
@@ -318,32 +342,6 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter corresponding author name and email"
             />
-          </div>
-        </div>
-
-        {/* Manuscript Content */}
-        <div className="space-y-6">
-          <h3 className="text-lg font-medium text-gray-900 border-b border-gray-200 pb-2">
-            Manuscript Content
-          </h3>
-          
-          <div>
-            <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2">
-              Full Manuscript Text *
-            </label>
-            <textarea
-              id="content"
-              name="content"
-              value={formData.content}
-              onChange={handleInputChange}
-              required
-              rows={20}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Paste your complete manuscript text here, including introduction, methodology, results, discussion, and conclusion..."
-            />
-            <p className="mt-2 text-sm text-gray-500">
-              Word count: {formData.content.split(' ').filter(word => word.length > 0).length}
-            </p>
           </div>
         </div>
 
@@ -416,7 +414,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
           {/* File Upload Section */}
           <div>
             <label htmlFor="manuscript_file" className="block text-sm font-medium text-gray-700 mb-2">
-              Manuscript File <span className="text-gray-500">(Optional)</span>
+              Manuscript File *
             </label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
               <input
@@ -425,6 +423,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
                 name="manuscript_file"
                 accept=".pdf,.doc,.docx"
                 onChange={handleInputChange}
+                required
                 className="hidden"
               />
               <label 
@@ -437,13 +436,16 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
                 <span className="text-sm text-gray-600">
                   {formData.manuscript_file 
                     ? `Selected: ${formData.manuscript_file.name}` 
-                    : 'Click to upload manuscript file'}
+                    : 'Click to upload your complete manuscript'}
                 </span>
                 <span className="text-xs text-gray-500 mt-1">
-                  PDF, DOC, or DOCX files up to 10MB
+                  PDF, DOC, or DOCX files up to 10MB (Required)
                 </span>
               </label>
             </div>
+            <p className="mt-2 text-sm text-gray-600">
+              Please upload your complete manuscript including all text, figures, and tables. This ensures proper formatting and preserves all visual elements.
+            </p>
             
             {fileUploading && (
               <div className="mt-3">

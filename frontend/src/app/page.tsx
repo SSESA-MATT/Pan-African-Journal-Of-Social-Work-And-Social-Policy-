@@ -77,7 +77,7 @@ export default function Home() {
             </h1>
             
             <p className="text-xl md:text-2xl text-neutral-200 mb-8 max-w-4xl mx-auto leading-relaxed">
-              Promoting Indigenous African knowledge systems and decolonial social work methodologies through scholarly research and community engagement
+              Connecting scholarship, practice, and policy for Africa’s social transformation
             </p>
             
             <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12">
@@ -152,9 +152,9 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-accent-black mb-4">Indigenous Knowledge</h3>
+            <h3 className="text-xl font-bold text-accent-black mb-4">Decolonial Perspective</h3>
             <p className="text-neutral-600 leading-relaxed">
-              Promoting African-centered approaches to social work practice and policy development rooted in traditional wisdom and contemporary scholarship.
+              Promoting African-centered approaches to social work and policy, grounded in indigenous knowledge and enriched by decolonial scholarship.
             </p>
           </div>
 
@@ -183,7 +183,34 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Latest Issues Section */}
+        {/* Priority Areas of Focus Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-8 md:p-12 mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold text-accent-black mb-8 text-center">
+            Priority Areas of Focus
+          </h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6 text-lg text-neutral-700">
+            {[
+              'Decolonizing and re-centering African social work.',
+              'Families, youth, and changing social structures.',
+              'Social protection and social development',
+              'Inequality, and inclusive development',
+              'Eco-social work and community resilience',
+              'Social work in in humanitarian action.',
+              'Mental health and wellbeing',
+              'Refugees, internally displaced persons, and migration-related policy debates.',
+              'Innovative approaches in social work pedagogy',
+            ].map((item, index) => (
+              <div key={index} className="flex items-start">
+                <div className="w-3 h-3 bg-accent-green rounded-full mt-2 mr-4 flex-shrink-0"></div>
+                <p>{item}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+
+
+        {/* Latest Volumes Section */}
         {!isLoading && latestVolumes.length > 0 && (
           <div className="mb-16">
             <div className="flex items-center justify-between mb-8">

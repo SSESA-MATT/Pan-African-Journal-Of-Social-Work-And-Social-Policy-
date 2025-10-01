@@ -43,11 +43,14 @@ export default function AuthorGuidelinesPage() {
               <div>
                 <h3 className="text-xl font-semibold mb-3 text-neutral-800">Manuscript Types</h3>
                 <ul className="list-disc pl-6 space-y-2 text-neutral-700">
-                  <li><strong>Research Articles:</strong> Original empirical research (4,000-8,000 words)</li>
-                  <li><strong>Review Articles:</strong> Systematic literature reviews (5,000-10,000 words)</li>
+                  <li><strong>Research Articles:</strong> Original empirical research (6,000-8,000 words)</li>
+                  <li><strong>Review Articles:</strong> Systematic literature reviews (6,000-8,000 words)</li>
                   <li><strong>Case Studies:</strong> Detailed analysis of specific cases (3,000-6,000 words)</li>
                   <li><strong>Brief Communications:</strong> Short research notes (1,500-3,000 words)</li>
                   <li><strong>Commentary:</strong> Opinion pieces on current issues (2,000-4,000 words)</li>
+                  <li><strong>Policy Briefs:</strong> Summarizing implications for governments and practitioners (2,000-3,000 words)</li>
+                  <li><strong>Practice Notes:</strong> Highlighting innovations from the field (1,500-2,500 words)</li>
+                  <li><strong>Student Voices:</strong> Short essays from African social work students (1,000-2,000 words)</li>
                 </ul>
               </div>
 

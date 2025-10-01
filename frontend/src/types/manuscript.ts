@@ -89,6 +89,7 @@ export interface ManuscriptSubmissionRequest {
   authors: string[];
   corresponding_author: string;
   manuscript_type: ManuscriptMetadata['manuscript_type'];
+  research_areas?: string;
   funding_information?: string;
   conflict_of_interest?: string;
   ethics_approval?: string;

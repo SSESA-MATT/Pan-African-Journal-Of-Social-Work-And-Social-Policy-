@@ -89,6 +89,16 @@ export default function SubmissionProcessPage() {
                         <li>• References in APA format</li>
                       </ul>
                     </div>
+                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                      <h4 className="font-semibold text-blue-800 mb-2">Article Length Guidelines</h4>
+                      <ul className="space-y-1 text-sm text-blue-700">
+                        <li>• Research articles: 6,000-8,000 words</li>
+                        <li>• Review articles: 6,000-8,000 words</li>
+                        <li>• Policy briefs: 2,000-3,000 words</li>
+                        <li>• Practice notes: 1,500-2,500 words</li>
+                        <li>• Student voices: 1,000-1,500 words</li>
+                      </ul>
+                    </div>
                     <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
                       <h4 className="font-semibold text-green-800 mb-2">Cultural Considerations</h4>
                       <ul className="space-y-1 text-sm text-green-700">
