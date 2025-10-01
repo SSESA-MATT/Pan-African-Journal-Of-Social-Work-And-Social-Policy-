@@ -21,11 +21,12 @@ export interface Manuscript {
 
 export interface ManuscriptMetadata {
   word_count: number;
-  manuscript_type: 'research' | 'review' | 'case-study' | 'commentary' | 'brief-communication';
+  manuscript_type: 'research' | 'review' | 'case-study' | 'commentary' | 'brief-communication' | 'policy-brief' | 'practice-note' | 'student-voice';
   funding_information?: string;
   conflict_of_interest?: string;
   ethics_approval?: string;
   data_availability?: string;
+  research_areas?: string; // Up to 5 areas of research focus
 }
 
 export interface ManuscriptFile {
@@ -89,7 +90,7 @@ export interface ManuscriptSubmissionRequest {
   authors: string[];
   corresponding_author: string;
   manuscript_type: ManuscriptMetadata['manuscript_type'];
-  research_areas?: string;
+  research_areas?: string; // Up to 5 areas of research focus
   funding_information?: string;
   conflict_of_interest?: string;
   ethics_approval?: string;

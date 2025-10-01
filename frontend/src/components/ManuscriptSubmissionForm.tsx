@@ -236,12 +236,12 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
             >
               <option value="research">Original Research</option>
               <option value="review">Review Article</option>
-              <option value="policy-brief">Policy Brief</option>
-              <option value="practice-note">Practice Note</option>
-              <option value="student-voice">Student Voice</option>
               <option value="case-study">Case Study</option>
               <option value="commentary">Commentary</option>
               <option value="brief-communication">Brief Communication</option>
+              <option value="policy-brief">Policy Brief</option>
+              <option value="practice-note">Practice Note</option>
+              <option value="student-voice">Student Voice</option>
             </select>
           </div>
 
@@ -260,7 +260,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
               placeholder="Enter your manuscript abstract (maximum 300 words)"
             />
             <p className="mt-2 text-sm text-gray-500">
-              Word count: {formData.abstract.split(' ').filter(word => word.length > 0).length}/300
+              Word count: {formData.abstract.split(' ').filter((word: string) => word.length > 0).length}/300
             </p>
           </div>
 

@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Pan African Journal Of Social Work And Social Policy',
-  description: 'A scholarly journal promoting Indigenous African knowledge systems and decolonial social work methodologies',
+  description: 'A scholarly journal connecting scholarship, practice, and policy for Africa\'s social transformation',
 };
 
 export default function RootLayout({

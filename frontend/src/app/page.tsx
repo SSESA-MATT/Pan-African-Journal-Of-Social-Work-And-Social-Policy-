@@ -77,7 +77,7 @@ export default function Home() {
             </h1>
             
             <p className="text-xl md:text-2xl text-neutral-200 mb-8 max-w-4xl mx-auto leading-relaxed">
-              Connecting scholarship, practice, and policy for Africa’s social transformation
+              Connecting scholarship, practice, and policy for Africa's social transformation
             </p>
             
             <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12">
@@ -144,6 +144,136 @@ export default function Home() {
           </p>
         </div>
 
+        {/* Priority Areas of Focus */}
+        <div className="bg-gradient-to-r from-accent-green/5 to-accent-red/5 rounded-2xl p-8 mb-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-accent-black mb-6">
+              Priority Areas of Focus
+            </h2>
+            <p className="text-lg text-neutral-700 max-w-3xl mx-auto">
+              Our journal addresses critical themes shaping Africa's social transformation
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start space-x-3">
+                <div className="w-3 h-3 bg-accent-red rounded-full mt-2 flex-shrink-0"></div>
+                <div>
+                  <h4 className="font-semibold text-accent-black mb-2">Decolonizing and re-centering African social work</h4>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start space-x-3">
+                <div className="w-3 h-3 bg-accent-green rounded-full mt-2 flex-shrink-0"></div>
+                <div>
+                  <h4 className="font-semibold text-accent-black mb-2">Families, youth, and changing social structures</h4>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start space-x-3">
+                <div className="w-3 h-3 bg-accent-red rounded-full mt-2 flex-shrink-0"></div>
+                <div>
+                  <h4 className="font-semibold text-accent-black mb-2">Social protection and social development</h4>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start space-x-3">
+                <div className="w-3 h-3 bg-accent-green rounded-full mt-2 flex-shrink-0"></div>
+                <div>
+                  <h4 className="font-semibold text-accent-black mb-2">Inequality, and inclusive development</h4>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start space-x-3">
+                <div className="w-3 h-3 bg-accent-red rounded-full mt-2 flex-shrink-0"></div>
+                <div>
+                  <h4 className="font-semibold text-accent-black mb-2">Eco-social work and community resilience</h4>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start space-x-3">
+                <div className="w-3 h-3 bg-accent-green rounded-full mt-2 flex-shrink-0"></div>
+                <div>
+                  <h4 className="font-semibold text-accent-black mb-2">Social work in humanitarian action</h4>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start space-x-3">
+                <div className="w-3 h-3 bg-accent-red rounded-full mt-2 flex-shrink-0"></div>
+                <div>
+                  <h4 className="font-semibold text-accent-black mb-2">Mental health and wellbeing</h4>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start space-x-3">
+                <div className="w-3 h-3 bg-accent-green rounded-full mt-2 flex-shrink-0"></div>
+                <div>
+                  <h4 className="font-semibold text-accent-black mb-2">Refugees, internally displaced persons, and migration-related policy debates</h4>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start space-x-3">
+                <div className="w-3 h-3 bg-accent-red rounded-full mt-2 flex-shrink-0"></div>
+                <div>
+                  <h4 className="font-semibold text-accent-black mb-2">Innovative approaches in social work pedagogy</h4>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-12 bg-white rounded-xl p-8 border border-neutral-200">
+            <h3 className="text-xl font-bold text-accent-black mb-6 text-center">Each Issue Includes</h3>
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-accent-green/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-6 h-6 text-accent-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h4 className="font-semibold text-accent-black mb-2">Policy Briefs</h4>
+                <p className="text-neutral-600 text-sm">Summarizing implications for governments and practitioners</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-12 h-12 bg-accent-red/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-6 h-6 text-accent-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <h4 className="font-semibold text-accent-black mb-2">Practice Notes</h4>
+                <p className="text-neutral-600 text-sm">Highlighting innovations from the field</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-6 h-6 text-accent-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </div>
+                <h4 className="font-semibold text-accent-black mb-2">Student Voices</h4>
+                <p className="text-neutral-600 text-sm">Short essays from African social work students to nurture scholarship</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Features Section with African aesthetics */}
         <div className="grid md:grid-cols-3 gap-8 mb-16">
           <div className="bg-white rounded-lg shadow-sm border-l-4 border-accent-red p-8 text-center hover:shadow-md transition-shadow">
@@ -208,8 +338,6 @@ export default function Home() {
           </div>
         </div>
 
-
-
         {/* Latest Volumes Section */}
         {!isLoading && latestVolumes.length > 0 && (
           <div className="mb-16">
@@ -227,7 +355,7 @@ export default function Home() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-6">
-              {latestVolumes.map((volume) => (
+              {latestVolumes.map((volume: VolumeWithIssues) => (
                 <div key={volume.id} className="bg-white rounded-lg shadow-sm border border-neutral-200 overflow-hidden hover:shadow-md transition-shadow">
                   <div className="bg-gradient-to-r from-accent-green to-accent-green/80 p-6 text-white">
                     <h3 className="text-xl font-bold mb-2">
@@ -276,7 +404,7 @@ export default function Home() {
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {latestArticles.map((article) => (
+              {latestArticles.map((article: ArticleWithDetails) => (
                 <div key={article.id} className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6 hover:shadow-md transition-shadow">
                   <div className="mb-4">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-green/10 text-green-800 border border-green-200 mb-3">
