@@ -29,6 +29,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
     conflict_of_interest: '',
     ethics_approval: '',
     data_availability: '',
+    research_areas: '', // Up to 5 areas of research focus
     manuscript_file: null as File | null
   });
 
@@ -110,6 +111,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
         conflict_of_interest: formData.conflict_of_interest.trim(),
         ethics_approval: formData.ethics_approval.trim(),
         data_availability: formData.data_availability.trim(),
+        research_areas: formData.research_areas.trim(),
         author_id: user.id
       };
 
@@ -232,11 +234,14 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="research">Original Research</option>
-              <option value="review">Review Article</option>
+              <option value="research">Research Article (6000-8000 words)</option>
+              <option value="review">Review Article (6000-8000 words)</option>
               <option value="case-study">Case Study</option>
               <option value="commentary">Commentary</option>
               <option value="brief-communication">Brief Communication</option>
+              <option value="policy-brief">Policy Brief</option>
+              <option value="practice-note">Practice Note</option>
+              <option value="student-voice">Student Voice</option>
             </select>
           </div>
 
@@ -275,6 +280,25 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
             />
             <p className="mt-2 text-sm text-gray-500">
               Separate keywords with commas. Recommended: 3-6 keywords.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="research_areas" className="block text-sm font-medium text-gray-700 mb-2">
+              List up to 5 areas of research focus *
+            </label>
+            <input
+              type="text"
+              id="research_areas"
+              name="research_areas"
+              value={formData.research_areas}
+              onChange={handleInputChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter up to 5 research focus areas separated by commas (e.g., child welfare, community practice, policy analysis)"
+            />
+            <p className="mt-2 text-sm text-gray-500">
+              List your primary areas of research focus, separated by commas. Maximum: 5 areas.
             </p>
           </div>
         </div>
@@ -341,9 +365,14 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Paste your complete manuscript text here, including introduction, methodology, results, discussion, and conclusion..."
             />
-            <p className="mt-2 text-sm text-gray-500">
-              Word count: {formData.content.split(' ').filter(word => word.length > 0).length}
-            </p>
+            <div className="mt-2 space-y-1">
+              <p className="text-sm text-gray-500">
+                Word count: {formData.content.split(' ').filter(word => word.length > 0).length}
+              </p>
+              <p className="text-xs text-blue-600">
+                💡 <strong>Tip:</strong> You can paste text here OR upload a file below. File upload preserves figures, tables, and formatting.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -416,7 +445,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
           {/* File Upload Section */}
           <div>
             <label htmlFor="manuscript_file" className="block text-sm font-medium text-gray-700 mb-2">
-              Manuscript File <span className="text-gray-500">(Optional)</span>
+              Manuscript File <span className="text-gray-500">(Optional - for documents with figures/tables)</span>
             </label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
               <input
@@ -440,7 +469,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
                     : 'Click to upload manuscript file'}
                 </span>
                 <span className="text-xs text-gray-500 mt-1">
-                  PDF, DOC, or DOCX files up to 10MB
+                  PDF, DOC, or DOCX files up to 10MB. Use file upload to preserve figures, tables, and formatting.
                 </span>
               </label>
             </div>

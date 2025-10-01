@@ -84,7 +84,7 @@ export const Footer: React.FC = () => {
                 African Journal of Social Work and Social Policy
               </h3>
               <p className="text-neutral-300 leading-relaxed mb-4">
-                Promoting Indigenous African knowledge systems and decolonial social work methodologies 
+                Connecting scholarship, practice, and policy for Africa's social transformation 
                 through scholarly research and community engagement.
               </p>
               
