@@ -313,31 +313,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Priority Areas of Focus Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-8 md:p-12 mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-accent-black mb-8 text-center">
-            Priority Areas of Focus
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6 text-lg text-neutral-700">
-            {[
-              'Decolonizing and re-centering African social work.',
-              'Families, youth, and changing social structures.',
-              'Social protection and social development',
-              'Inequality, and inclusive development',
-              'Eco-social work and community resilience',
-              'Social work in in humanitarian action.',
-              'Mental health and wellbeing',
-              'Refugees, internally displaced persons, and migration-related policy debates.',
-              'Innovative approaches in social work pedagogy',
-            ].map((item, index) => (
-              <div key={index} className="flex items-start">
-                <div className="w-3 h-3 bg-accent-green rounded-full mt-2 mr-4 flex-shrink-0"></div>
-                <p>{item}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Latest Volumes Section */}
         {!isLoading && latestVolumes.length > 0 && (
           <div className="mb-16">
