@@ -310,10 +310,10 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* Bio */}
+            {/* Research Focus Areas */}
             <div>
               <label htmlFor="bio" className="block text-sm font-medium text-neutral-700">
-                Professional Bio
+                Research Focus Areas
               </label>
               <textarea
                 id="bio"
@@ -322,7 +322,7 @@ export default function RegisterPage() {
                 value={formData.bio}
                 onChange={handleInputChange}
                 className="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-accent-green focus:border-accent-green"
-                placeholder="Brief description of your professional background and research interests..."
+                placeholder="List up to 5 areas of research focus (e.g., community social work, decolonial practice, mental health, social policy, youth development)"
               />
               <p className="mt-1 text-xs text-neutral-500">
                 This will be displayed on your profile and help with reviewer assignments
