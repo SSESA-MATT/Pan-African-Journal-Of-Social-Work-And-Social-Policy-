@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
 import { submitManuscript } from '../lib/manuscriptApi';
 import { ManuscriptSubmissionRequest } from '../types/manuscript';
+import RichTextEditor from './RichTextEditor';
 
 interface SubmissionFormProps {
   onSubmissionComplete: () => void;
@@ -169,9 +170,11 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
     supervisor_endorsement: '', // For student voices
   });
 
-  // Calculate word count for content
+  // Calculate word count for content (strip HTML tags for accurate count)
   useEffect(() => {
-    const words = formData.content.trim().split(/\s+/).filter(word => word.length > 0);
+    // Remove HTML tags and count words
+    const textContent = formData.content.replace(/<[^>]*>/g, '').trim();
+    const words = textContent.split(/\s+/).filter(word => word.length > 0);
     setWordCount(words.length);
   }, [formData.content]);
 
@@ -193,6 +196,14 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
         [name]: value
       }));
     }
+  };
+
+  // Handler for rich text editor content
+  const handleContentChange = (content: string) => {
+    setFormData(prev => ({
+      ...prev,
+      content: content
+    }));
   };
 
   const uploadFile = async (file: File, submissionId: string): Promise<string> => {
@@ -593,18 +604,30 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
         <label htmlFor="content" className="block text-sm font-medium text-gray-900 mb-2">
           Manuscript Content
         </label>
-        <textarea
-          id="content"
-          name="content"
+        <div className="mb-2">
+          <p className="text-sm text-gray-600">
+            Use the editor below to write and format your manuscript. You can add headings, bold text, italics, lists, quotes, and more.
+          </p>
+        </div>
+        <RichTextEditor
           value={formData.content}
-          onChange={handleInputChange}
-          rows={15}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          placeholder="Paste your complete manuscript text here, or upload a file below..."
+          onChange={handleContentChange}
+          placeholder="Start writing your manuscript here. Use the toolbar above to format your text with headings, bold, italic, lists, and other formatting options..."
+          className="manuscript-editor"
         />
         <div className="mt-2 flex justify-between text-sm">
           <p className="text-gray-600">Word count: {wordCount}</p>
           <p className="text-blue-600">Expected: {selectedArticleType.wordLimit}</p>
+        </div>
+        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <h4 className="text-sm font-medium text-blue-900 mb-1">Formatting Tips:</h4>
+          <ul className="text-xs text-blue-800 space-y-1">
+            <li>• Use <strong>Heading 1</strong> for main sections (Introduction, Methods, Results, etc.)</li>
+            <li>• Use <strong>Heading 2</strong> for subsections</li>
+            <li>• Use <strong>Bold</strong> for key terms and <em>Italic</em> for emphasis</li>
+            <li>• Use the quote tool for longer citations or important quotes</li>
+            <li>• Use numbered lists for procedures and bullet points for key points</li>
+          </ul>
         </div>
       </div>
 
