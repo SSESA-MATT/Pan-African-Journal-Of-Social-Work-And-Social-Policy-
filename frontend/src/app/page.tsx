@@ -237,41 +237,6 @@ export default function Home() {
               </div>
             </div>
           </div>
-          
-          <div className="mt-12 bg-white rounded-xl p-8 border border-neutral-200">
-            <h3 className="text-xl font-bold text-accent-black mb-6 text-center">Each Issue Includes</h3>
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="text-center">
-                <div className="w-12 h-12 bg-accent-green/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-accent-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <h4 className="font-semibold text-accent-black mb-2">Policy Briefs</h4>
-                <p className="text-neutral-600 text-sm">Summarizing implications for governments and practitioners</p>
-              </div>
-              
-              <div className="text-center">
-                <div className="w-12 h-12 bg-accent-red/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-accent-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <h4 className="font-semibold text-accent-black mb-2">Practice Notes</h4>
-                <p className="text-neutral-600 text-sm">Highlighting innovations from the field</p>
-              </div>
-              
-              <div className="text-center">
-                <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-accent-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                </div>
-                <h4 className="font-semibold text-accent-black mb-2">Student Voices</h4>
-                <p className="text-neutral-600 text-sm">Short essays from African social work students to nurture scholarship</p>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Latest Volumes Section */}
