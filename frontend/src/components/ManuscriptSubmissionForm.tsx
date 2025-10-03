@@ -5,6 +5,7 @@ import { useAuth } from './AuthProvider';
 import { submitManuscript } from '../lib/manuscriptApi';
 import { ManuscriptSubmissionRequest } from '../types/manuscript';
 import RichTextEditor from './RichTextEditor';
+import { useRouter } from 'next/navigation';
 
 interface SubmissionFormProps {
   onSubmissionComplete: () => void;
@@ -135,7 +136,8 @@ const ARTICLE_TYPES: Record<string, ArticleTypeInfo> = {
 };
 
 const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete }) => {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -143,6 +145,16 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
   const [uploadProgress, setUploadProgress] = useState(0);
   const [fileUploading, setFileUploading] = useState(false);
   const [wordCount, setWordCount] = useState(0);
+
+  // Check authentication
+  useEffect(() => {
+    if (!authLoading && !user) {
+      setError('You must be logged in to submit a manuscript. Redirecting to login...');
+      setTimeout(() => {
+        router.push('/login?redirect=/submit');
+      }, 2000);
+    }
+  }, [user, authLoading, router]);
 
   const [formData, setFormData] = useState({
     // Step 1: Article Type & Basic Info
@@ -284,6 +296,13 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Check authentication first
+    if (!user?.id) {
+      setError('You must be logged in to submit a manuscript.');
+      router.push('/login?redirect=/submit');
+      return;
+    }
+    
     // Validate all steps
     const allErrors: string[] = [];
     for (let i = 1; i <= 4; i++) {
@@ -299,37 +318,53 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
     setLoading(true);
 
     try {
-      if (!user?.id) {
-        throw new Error('User authentication required');
-      }
-
-      // Prepare submission data
-      const submissionData: ManuscriptSubmissionRequest = {
+      // Prepare submission data for direct API call
+      const submissionPayload = {
         title: formData.title.trim(),
         abstract: formData.abstract.trim(),
         content: formData.content.trim(),
         keywords: formData.keywords.split(',').map(k => k.trim()).filter(k => k),
-        authors: formData.authors.split(',').map(a => a.trim()).filter(a => a),
+        co_authors: formData.authors.split(',').map(a => a.trim()).filter(a => a),
         corresponding_author: formData.corresponding_author.trim(),
-        manuscript_type: formData.manuscript_type as any,
-        funding_information: formData.funding_information.trim(),
+        submission_type: formData.manuscript_type,
+        funding_statement: formData.funding_information.trim(),
         conflict_of_interest: formData.conflict_of_interest.trim(),
-        ethics_approval: formData.ethics_approval.trim(),
+        ethics_statement: formData.ethics_approval.trim(),
         data_availability: formData.data_availability.trim(),
-        research_areas: formData.research_areas.trim(),
-        author_id: user.id
+        research_focus_areas: formData.research_areas.trim(),
+        word_count: wordCount
       };
 
-      console.log('Submitting manuscript:', { title: submissionData.title, author_id: submissionData.author_id });
+      console.log('Submitting manuscript:', { title: submissionPayload.title, user_id: user.id });
 
-      // Submit the manuscript first
-      const response = await submitManuscript(submissionData);
-      console.log('Submission response:', response);
+      // Make direct API call with proper session authentication
+      const response = await fetch('/api/submissions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session authentication
+        body: JSON.stringify(submissionPayload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Submission failed:', response.status, errorData);
+        
+        if (response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        }
+        
+        throw new Error(errorData.error || `Submission failed with status ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Submission successful:', result);
 
       // Upload files if provided
-      if (formData.manuscript_file && response.submission?.id) {
+      if (formData.manuscript_file && result.submission?.id) {
         try {
-          const fileUrl = await uploadFile(formData.manuscript_file, response.submission.id);
+          const fileUrl = await uploadFile(formData.manuscript_file, result.submission.id);
           console.log('File uploaded successfully:', fileUrl);
         } catch (fileError) {
           console.error('File upload failed:', fileError);
@@ -346,7 +381,20 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
 
     } catch (err) {
       console.error('Submission error:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred during submission');
+      
+      // Handle specific error types
+      if (err instanceof Error) {
+        if (err.message.includes('Authentication') || err.message.includes('401')) {
+          setError('Authentication failed. Please log in again and try submitting.');
+          setTimeout(() => {
+            router.push('/login?redirect=/submit');
+          }, 2000);
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError('An unexpected error occurred during submission. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -387,6 +435,53 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
             <p className="text-xs text-gray-400">
               Redirecting to your manuscript dashboard...
             </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading spinner while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Checking Authentication...</h3>
+            <p className="text-gray-600">Please wait while we verify your login status.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
+              <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h3>
+            <p className="text-gray-600 mb-6">
+              You must be logged in to submit a manuscript. Please log in to continue.
+            </p>
+            <div className="space-y-4">
+              <a 
+                href="/login?redirect=/submit" 
+                className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Go to Login
+              </a>
+              <p className="text-sm text-gray-500">
+                Don't have an account? <a href="/register" className="text-blue-600 hover:underline">Register here</a>
+              </p>
+            </div>
           </div>
         </div>
       </div>
