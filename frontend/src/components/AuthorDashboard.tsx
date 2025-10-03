@@ -16,7 +16,7 @@ interface AuthorDashboardProps {
 }
 
 const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) => {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [manuscripts, setManuscripts] = useState<Manuscript[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'new-submission' | 'manuscripts'>('overview');
@@ -26,12 +26,17 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
   useEffect(() => {
     if (user?.id) {
       loadManuscripts();
+    } else if (!authLoading && !user) {
+      // User is not authenticated and auth loading is complete
+      setError('Please log in to view your manuscripts');
+      setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   const loadManuscripts = async () => {
     try {
       setLoading(true);
+      setError(null); // Clear previous errors
       console.log('loadManuscripts - Starting...');
       console.log('loadManuscripts - user object:', user);
       console.log('loadManuscripts - user.id:', user!.id);
@@ -43,8 +48,14 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
       
       setManuscripts(userManuscripts);
     } catch (err) {
-      setError('Failed to load manuscripts');
       console.error('loadManuscripts error:', err);
+      
+      // Check if it's an authentication error
+      if (err instanceof Error && err.message.includes('401')) {
+        setError('Authentication expired. Please log in again to view your manuscripts.');
+      } else {
+        setError('Failed to load manuscripts. Please try again or contact support if the issue persists.');
+      }
     } finally {
       setLoading(false);
     }
