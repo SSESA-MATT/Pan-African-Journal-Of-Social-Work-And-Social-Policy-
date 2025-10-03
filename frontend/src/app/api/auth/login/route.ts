@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,8 +16,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sign in with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    // Sign in with Supabase Auth using cookie-based client
+    const supabaseClient = createRouteHandlerClient({ cookies });
+    const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
       email,
       password
     });
@@ -49,8 +52,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user profile from our users table
-    const { data: userProfile, error: profileError } = await supabase
+    // Get user profile from our users table using the cookie-based client
+    const { data: userProfile, error: profileError } = await supabaseClient
       .from('users')
       .select('*')
       .eq('id', authData.user.id)

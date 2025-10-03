@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the token from the Authorization header
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'No authorization token provided' },
-        { status: 401 }
-      );
-    }
+    // Use cookie-based client for proper session management
+    const supabase = createRouteHandlerClient({ cookies });
 
-    const token = authHeader.substring(7);
-
-    // Sign out from Supabase Auth
+    // Sign out from Supabase Auth (this will clear session cookies)
     const { error } = await supabase.auth.signOut();
     
     if (error) {
