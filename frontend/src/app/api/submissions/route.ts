@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       id: submission.id,
       title: submission.title || 'Untitled',
       abstract: submission.abstract || '',
-      content: '',
+      content: submission.content || '', // FIX: Return the actual content
       keywords: Array.isArray(submission.keywords) ? submission.keywords : [],
       authors: Array.isArray(submission.co_authors) ? submission.co_authors : [],
       corresponding_author: submission.corresponding_author || '',
@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
     const dbSubmission = {
       title: jsonData.title,
       abstract: jsonData.abstract,
+      content: jsonData.content || '', // FIX: Save the actual manuscript content
       co_authors: Array.isArray(jsonData.authors) ? jsonData.authors : 
                   (jsonData.authors ? jsonData.authors.split(',').map((a: string) => a.trim()) : []),
       keywords: Array.isArray(jsonData.keywords) ? jsonData.keywords : 
@@ -141,7 +142,7 @@ export async function POST(request: NextRequest) {
       submission_date: new Date().toISOString(),
       author_id: secureUserId, // Use the secure ID from the session
       word_count: jsonData.word_count || (jsonData.content ? jsonData.content.replace(/<[^>]*>/g, '').split(' ').length : 0),
-      manuscript_file_url: '' // File URL will be handled separately
+      manuscript_file_url: jsonData.manuscript_file_url || '' // TODO: Integrate file upload
     };
 
     console.log('Inserting into database with secure author_id:', { title: dbSubmission.title, author_id: dbSubmission.author_id });
