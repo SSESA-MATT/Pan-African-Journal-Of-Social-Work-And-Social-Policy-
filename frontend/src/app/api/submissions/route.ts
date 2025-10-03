@@ -20,13 +20,22 @@ export async function OPTIONS() {
 
 export async function GET(request: NextRequest) {
   console.log('=== SECURE GET /api/submissions request started ===');
+  console.log('Request headers:', Object.fromEntries(request.headers.entries()));
+  console.log('Request URL:', request.url);
   
   try {
     const supabase = createRouteHandlerClient({ cookies });
 
     // Get the current user session to identify the user
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    console.log('Session error:', sessionError);
+    console.log('Session exists:', !!session);
+    console.log('Session user ID:', session?.user?.id);
+    console.log('Session user email:', session?.user?.email);
+    
     if (!session) {
+      console.log('No session found - returning 401');
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401, headers: corsHeaders() });
     }
     const userId = session.user.id;
@@ -84,12 +93,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   console.log('=== SECURE POST /api/submissions request started ===');
+  console.log('POST Request headers:', Object.fromEntries(request.headers.entries()));
+  console.log('POST Request URL:', request.url);
   
   try {
     const supabase = createRouteHandlerClient({ cookies });
     
     // Get the current user session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    console.log('POST Session error:', sessionError);
+    console.log('POST Session exists:', !!session);
+    console.log('POST Session user ID:', session?.user?.id);
 
     if (sessionError) {
       console.error('Session error:', sessionError.message);
