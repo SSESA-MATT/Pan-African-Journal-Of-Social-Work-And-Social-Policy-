@@ -111,18 +111,21 @@ export async function POST(request: NextRequest) {
     const dbSubmission = {
       title: jsonData.title,
       abstract: jsonData.abstract,
-      co_authors: Array.isArray(jsonData.authors) ? jsonData.authors : jsonData.authors?.split(',').map((a: string) => a.trim()) || [],
-      keywords: Array.isArray(jsonData.keywords) ? jsonData.keywords : jsonData.keywords?.split(',').map((k: string) => k.trim()) || [],
-      submission_type: jsonData.manuscript_type || 'research',
+      co_authors: Array.isArray(jsonData.authors) ? jsonData.authors : 
+                  (jsonData.authors ? jsonData.authors.split(',').map((a: string) => a.trim()) : []),
+      keywords: Array.isArray(jsonData.keywords) ? jsonData.keywords : 
+                (jsonData.keywords ? jsonData.keywords.split(',').map((k: string) => k.trim()) : []),
+      submission_type: jsonData.manuscript_type || 'research_article',
       corresponding_author: jsonData.corresponding_author || '',
       funding_statement: jsonData.funding_information || '',
       conflict_of_interest: jsonData.conflict_of_interest || 'No conflicts declared',
       ethics_statement: jsonData.ethics_approval || '',
       data_availability: jsonData.data_availability || '',
+      manuscript_type: jsonData.manuscript_type || 'research',
       status: 'submitted',
       submission_date: new Date().toISOString(),
       author_id: secureUserId, // Use the secure ID from the session
-      word_count: jsonData.content ? jsonData.content.split(' ').length : 0,
+      word_count: jsonData.word_count || (jsonData.content ? jsonData.content.replace(/<[^>]*>/g, '').split(' ').length : 0),
       manuscript_file_url: '' // File URL will be handled separately
     };
 

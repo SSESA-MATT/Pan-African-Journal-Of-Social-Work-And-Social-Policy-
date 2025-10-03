@@ -324,14 +324,14 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
         abstract: formData.abstract.trim(),
         content: formData.content.trim(),
         keywords: formData.keywords.split(',').map(k => k.trim()).filter(k => k),
-        co_authors: formData.authors.split(',').map(a => a.trim()).filter(a => a),
+        authors: formData.authors.split(',').map(a => a.trim()).filter(a => a),
         corresponding_author: formData.corresponding_author.trim(),
-        submission_type: formData.manuscript_type,
-        funding_statement: formData.funding_information.trim(),
+        manuscript_type: formData.manuscript_type,
+        funding_information: formData.funding_information.trim(),
         conflict_of_interest: formData.conflict_of_interest.trim(),
-        ethics_statement: formData.ethics_approval.trim(),
+        ethics_approval: formData.ethics_approval.trim(),
         data_availability: formData.data_availability.trim(),
-        research_focus_areas: formData.research_areas.trim(),
+        research_areas: formData.research_areas.trim(),
         word_count: wordCount
       };
 
