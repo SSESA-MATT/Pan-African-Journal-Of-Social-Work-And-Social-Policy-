@@ -80,29 +80,35 @@ export async function GET(request: NextRequest) {
     const pendingReviews = [];
     if (submissions && submissions.length > 0) {
       for (const submission of submissions) {
-        // Get author info
-        const { data: author, error: authorError } = await supabase
-          .from('users')
-          .select('first_name, last_name, affiliation')
-          .eq('id', submission.author_id)
-          .single();
+        try {
+          // Get author info
+          const { data: author, error: authorError } = await supabase
+            .from('users')
+            .select('first_name, last_name, affiliation')
+            .eq('id', submission.author_id)
+            .single();
 
-        if (!authorError && author) {
-          pendingReviews.push({
-            id: `pending-${submission.id}`,
-            submission_id: submission.id,
-            title: submission.title,
-            abstract: submission.abstract,
-            status: 'pending',
-            submitted_at: submission.submission_date,
-            due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-            author_first_name: author.first_name || 'Unknown',
-            author_last_name: author.last_name || 'Author',
-            author_affiliation: author.affiliation || 'Unknown',
-            keywords: submission.keywords || [],
-            priority: 'medium',
-            manuscript_type: submission.submission_type || 'research_article'
-          });
+          if (!authorError && author) {
+            pendingReviews.push({
+              id: `pending-${submission.id}`,
+              submission_id: submission.id,
+              title: submission.title,
+              abstract: submission.abstract,
+              status: 'pending',
+              submitted_at: submission.submission_date,
+              due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+              author_first_name: author.first_name || 'Unknown',
+              author_last_name: author.last_name || 'Author',
+              author_affiliation: author.affiliation || 'Unknown',
+              keywords: submission.keywords || [],
+              priority: 'medium',
+              manuscript_type: submission.submission_type || 'research_article'
+            });
+          } else {
+            console.log('Author not found for submission:', submission.id, authorError);
+          }
+        } catch (authorErr) {
+          console.error('Error fetching author for submission:', submission.id, authorErr);
         }
       }
     }
@@ -146,6 +152,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Dashboard API error:', error);
+    console.error('Error stack:', error?.stack);
     return NextResponse.json(
       { error: 'Failed to fetch dashboard data', details: error?.message || 'Unknown error' },
       { status: 500, headers: corsHeaders() }
