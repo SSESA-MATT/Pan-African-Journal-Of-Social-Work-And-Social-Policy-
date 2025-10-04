@@ -57,91 +57,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403, headers: corsHeaders() });
     }
 
-    console.log('User has reviewer permissions, fetching submissions...');
+    console.log('User has reviewer permissions, creating mock dashboard data...');
     
-    // Fetch submissions that need review - using a more compatible query
-    const { data: submissions, error: submissionsError } = await supabase
-      .from('submissions')
-      .select(`
-        id,
-        title,
-        abstract,
-        submission_date,
-        author_id,
-        submission_type,
-        keywords,
-        status
-      `)
-      .in('status', ['submitted', 'under_review'])
-      .order('submission_date', { ascending: false })
-      .limit(10);
-
-    if (submissionsError) {
-      console.error('Error fetching submissions:', submissionsError);
-      return NextResponse.json(
-        { error: 'Failed to fetch submissions', details: submissionsError.message },
-        { status: 500, headers: corsHeaders() }
-      );
-    }
-
-    console.log(`Found ${submissions?.length || 0} submissions for review`);
-
-    // For each submission, get the author info separately
-    const pendingReviews = [];
-    if (submissions && submissions.length > 0) {
-      for (const submission of submissions) {
-        try {
-          // Get author info with a simpler query
-          const { data: author } = await supabase
-            .from('users')
-            .select('first_name, last_name, affiliation')
-            .eq('id', submission.author_id)
-            .single();
-
-          // Add the review item regardless of whether we found author info
-          pendingReviews.push({
-            id: `pending-${submission.id}`,
-            submission_id: submission.id,
-            title: submission.title,
-            abstract: submission.abstract,
-            status: 'pending',
-            submitted_at: submission.submission_date,
-            due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-            author_first_name: author?.first_name || 'Unknown',
-            author_last_name: author?.last_name || 'Author',
-            author_affiliation: author?.affiliation || 'Unknown',
-            keywords: submission.keywords || [],
-            priority: 'medium',
-            manuscript_type: submission.submission_type || 'research_article'
-          });
-        } catch (authorErr) {
-          console.error('Error fetching author for submission:', submission.id, authorErr);
-          // Still add the submission even if author fetch fails
-          pendingReviews.push({
-            id: `pending-${submission.id}`,
-            submission_id: submission.id,
-            title: submission.title,
-            abstract: submission.abstract,
-            status: 'pending',
-            submitted_at: submission.submission_date,
-            due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-            author_first_name: 'Unknown',
-            author_last_name: 'Author',
-            author_affiliation: 'Unknown',
-            keywords: submission.keywords || [],
-            priority: 'medium',
-            manuscript_type: submission.submission_type || 'research_article'
-          });
-        }
-      }
-    }
-
+    // For now, let's return mock data to test if the RLS issue is with the submissions table
+    // We'll gradually add real data back once we confirm this works
     const dashboardData = {
-      pendingReviews: pendingReviews.slice(0, 5),
-      completedReviews: [], // TODO: Fetch completed reviews
+      pendingReviews: [
+        {
+          id: 'mock-1',
+          submission_id: 'mock-submission-1',
+          title: 'Sample Manuscript for Review',
+          abstract: 'This is a sample manuscript that demonstrates the reviewer dashboard functionality. In a real system, this would be populated with actual submission data from authors.',
+          status: 'pending',
+          submitted_at: new Date().toISOString(),
+          due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+          author_first_name: 'Sample',
+          author_last_name: 'Author',
+          author_affiliation: 'Sample University',
+          keywords: ['social work', 'community development'],
+          priority: 'medium',
+          manuscript_type: 'research_article'
+        }
+      ],
+      completedReviews: [],
       reviewStats: {
-        totalReviews: 0,
-        pendingCount: pendingReviews.length,
+        totalReviews: 1,
+        pendingCount: 1,
         completedThisMonth: 0,
         averageReviewTime: 18,
         acceptanceRate: 0.4,
@@ -151,26 +92,7 @@ export async function GET(request: NextRequest) {
       }
     };
 
-    // Add fallback message if no real user data
-    if (dashboardData.pendingReviews.length === 0) {
-      dashboardData.pendingReviews = [{
-        id: 'fallback-1',
-        submission_id: 'none',
-        title: 'No submissions available for review',
-        abstract: 'There are currently no manuscripts pending review. New submissions will appear here automatically when authors submit their work.',
-        status: 'pending',
-        submitted_at: new Date().toISOString(),
-        due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-        author_first_name: 'System',
-        author_last_name: 'Message',
-        author_affiliation: 'Journal System',
-        keywords: ['waiting', 'submissions'],
-        priority: 'low',
-        manuscript_type: 'system_message'
-      }];
-    }
-
-    console.log('Returning dashboard data with', dashboardData.pendingReviews.length, 'pending reviews');
+    console.log('Returning mock dashboard data');
     return NextResponse.json(dashboardData, { headers: corsHeaders() });
 
   } catch (error: any) {
