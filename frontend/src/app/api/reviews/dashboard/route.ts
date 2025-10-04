@@ -88,52 +88,71 @@ export async function GET(request: NextRequest) {
 
     console.log('User has reviewer permissions, attempting to fetch real submissions...');
     
-    // Try to fetch real submissions first, fall back to mock data if RLS issues persist
+    // Try to fetch real submissions - prioritize showing actual submissions over mock data
     let pendingReviews = [];
     let hasRealData = false;
     
     try {
-      // First, try to get submissions assigned to this specific reviewer
-      const { data: assignedSubmissions, error: assignedError } = await supabase
-        .rpc('get_submissions_for_reviewer', { reviewer_user_id: userId });
+      console.log('Trying direct query first to get all submissions...');
       
-      if (!assignedError && assignedSubmissions && assignedSubmissions.length > 0) {
-        console.log(`Found ${assignedSubmissions.length} submissions assigned to reviewer ${userId}`);
+      // Start with direct query to get all real submissions
+      const { data: directSubmissions, error: directError } = await supabase
+        .from('submissions')
+        .select(`
+          id,
+          title,
+          abstract,
+          keywords,
+          status,
+          submission_date,
+          created_at,
+          submission_type,
+          users!submissions_author_id_fkey (
+            first_name,
+            last_name,
+            affiliation
+          )
+        `)
+        .in('status', ['submitted', 'under_review'])
+        .order('submission_date', { ascending: false })
+        .limit(10);
+      
+      if (!directError && directSubmissions && directSubmissions.length > 0) {
+        console.log(`Found ${directSubmissions.length} real submissions using direct query`);
         hasRealData = true;
         
-        // Process assigned submissions
-        for (const submission of assignedSubmissions) {
+        // Process real submissions from direct query
+        for (const submission of directSubmissions) {
+          const author = submission.users as any;
           pendingReviews.push({
             id: `real-${submission.id}`,
             submission_id: submission.id,
             title: submission.title || 'Untitled Manuscript',
             abstract: submission.abstract || 'No abstract available',
-            status: submission.review_status || 'pending',
+            status: 'pending',
             submitted_at: submission.submission_date || submission.created_at,
-            due_date: submission.review_due_date || new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-            author_first_name: submission.author_first_name || 'Unknown',
-            author_last_name: submission.author_last_name || 'Author',
-            author_affiliation: submission.author_affiliation || 'Unknown Institution',
+            due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+            author_first_name: author?.first_name || 'Unknown',
+            author_last_name: author?.last_name || 'Author',
+            author_affiliation: author?.affiliation || 'Unknown Institution',
             keywords: Array.isArray(submission.keywords) ? submission.keywords : [],
             priority: 'medium',
-            manuscript_type: submission.submission_type || 'research_article',
-            review_id: submission.review_id,
-            assigned_at: submission.review_assigned_at
+            manuscript_type: submission.submission_type || 'research_article'
           });
         }
       } else {
-        console.log('No submissions assigned to this reviewer, trying general RPC function...');
+        console.log('Direct query failed, trying RPC functions...', directError);
         
-        // Fallback: Try to get submissions using the general RPC function
-        const { data: submissions, error: submissionsError } = await supabase
-          .rpc('get_submissions_for_review');
+        // Fallback 1: Try to get submissions assigned to this specific reviewer
+        const { data: assignedSubmissions, error: assignedError } = await supabase
+          .rpc('get_submissions_for_reviewer', { reviewer_user_id: userId });
         
-        if (!submissionsError && submissions && submissions.length > 0) {
-          console.log(`Found ${submissions.length} real submissions using general RPC function`);
+        if (!assignedError && assignedSubmissions && assignedSubmissions.length > 0) {
+          console.log(`Found ${assignedSubmissions.length} submissions assigned to reviewer ${userId}`);
           hasRealData = true;
           
-          // Process real submissions from RPC
-          for (const submission of submissions.slice(0, 10)) {
+          // Process assigned submissions
+          for (const submission of assignedSubmissions) {
             pendingReviews.push({
               id: `real-${submission.id}`,
               submission_id: submission.id,
@@ -153,55 +172,38 @@ export async function GET(request: NextRequest) {
             });
           }
         } else {
-          console.log('RPC function returned no data, trying direct query...');
+          console.log('No assigned submissions, trying general RPC function...');
           
-          // Fallback: Try direct query on submissions table
-          const { data: directSubmissions, error: directError } = await supabase
-            .from('submissions')
-            .select(`
-              id,
-              title,
-              abstract,
-              keywords,
-              status,
-              submission_date,
-              created_at,
-              submission_type,
-              users!submissions_author_id_fkey (
-                first_name,
-                last_name,
-                affiliation
-              )
-            `)
-            .in('status', ['submitted', 'under_review'])
-            .order('submission_date', { ascending: false })
-            .limit(10);
+          // Fallback 2: Try to get submissions using the general RPC function
+          const { data: submissions, error: submissionsError } = await supabase
+            .rpc('get_submissions_for_review');
           
-          if (!directError && directSubmissions && directSubmissions.length > 0) {
-            console.log(`Found ${directSubmissions.length} real submissions using direct query`);
+          if (!submissionsError && submissions && submissions.length > 0) {
+            console.log(`Found ${submissions.length} real submissions using general RPC function`);
             hasRealData = true;
             
-            // Process real submissions from direct query
-            for (const submission of directSubmissions) {
-              const author = submission.users as any;
+            // Process real submissions from RPC
+            for (const submission of submissions.slice(0, 10)) {
               pendingReviews.push({
                 id: `real-${submission.id}`,
                 submission_id: submission.id,
                 title: submission.title || 'Untitled Manuscript',
                 abstract: submission.abstract || 'No abstract available',
-                status: 'pending',
+                status: submission.review_status || 'pending',
                 submitted_at: submission.submission_date || submission.created_at,
-                due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-                author_first_name: author?.first_name || 'Unknown',
-                author_last_name: author?.last_name || 'Author',
-                author_affiliation: author?.affiliation || 'Unknown Institution',
+                due_date: submission.review_due_date || new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+                author_first_name: submission.author_first_name || 'Unknown',
+                author_last_name: submission.author_last_name || 'Author',
+                author_affiliation: submission.author_affiliation || 'Unknown Institution',
                 keywords: Array.isArray(submission.keywords) ? submission.keywords : [],
                 priority: 'medium',
-                manuscript_type: submission.submission_type || 'research_article'
+                manuscript_type: submission.submission_type || 'research_article',
+                review_id: submission.review_id,
+                assigned_at: submission.review_assigned_at
               });
             }
           } else {
-            console.log('Direct query also failed:', directError);
+            console.log('All query attempts failed');
           }
         }
       }
@@ -248,11 +250,11 @@ export async function GET(request: NextRequest) {
 
     const dashboardData = {
       pendingReviews: pendingReviews,
-      completedReviews: [], // TODO: Add completed reviews
+      completedReviews: [], // TODO: Add completed reviews from database
       reviewStats: {
-        totalReviews: pendingReviews.length,
+        totalReviews: 0, // Will be updated when we fetch completed reviews
         pendingCount: pendingReviews.length,
-        completedThisMonth: 0,
+        completedThisMonth: 0, // Will be updated when we fetch completed reviews
         averageReviewTime: 18,
         acceptanceRate: 0.4,
         onTimeCompletionRate: 0.85,
@@ -260,7 +262,7 @@ export async function GET(request: NextRequest) {
         performance_rating: 4.2
       },
       dataSource: hasRealData ? 'database' : 'mock',
-      message: hasRealData ? 'Showing real submission data' : 'Showing demo data - real submissions will appear when authors submit manuscripts'
+      message: hasRealData ? `Showing ${pendingReviews.length} real submissions available for review` : 'Showing demo data - real submissions will appear when authors submit manuscripts'
     };
 
     console.log(`Returning dashboard data with ${pendingReviews.length} reviews (${hasRealData ? 'real' : 'mock'} data)`);
