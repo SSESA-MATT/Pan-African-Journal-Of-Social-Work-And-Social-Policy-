@@ -25,28 +25,45 @@ export async function GET(request: NextRequest) {
     const supabase = createRouteHandlerClient({ cookies });
 
     // Get the current user session to ensure they're authenticated
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    console.log('Session error:', sessionError);
+    console.log('Session exists:', !!session);
+    console.log('Session user ID:', session?.user?.id);
+    
+    if (sessionError || !session) {
+      console.log('No session found - returning 401');
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401, headers: corsHeaders() });
     }
 
-    // TODO: Add role check to ensure user is a reviewer or admin
-    console.log('Fetching reviewer dashboard data from database...');
+    const userId = session.user.id;
+    console.log('Fetching reviewer dashboard data for user:', userId);
+
+    // Get user profile to check reviewer role
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (profileError) {
+      console.error('Profile fetch error:', profileError);
+      return NextResponse.json({ error: 'User profile not found' }, { status: 404, headers: corsHeaders() });
+    }
+
+    // Check if user has reviewer permissions
+    if (!['reviewer', 'editor', 'admin'].includes(userProfile.role)) {
+      console.log('User does not have reviewer permissions, role:', userProfile.role);
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403, headers: corsHeaders() });
+    }
+
+    console.log('User has reviewer permissions, fetching submissions...');
     
-    // Fetch all submissions that need review (prioritize real users over test data)
+    // Fetch submissions that need review
     const { data: submissions, error: submissionsError } = await supabase
       .from('submissions')
-      .select(`
-        id,
-        title,
-        abstract,
-        keywords,
-        submission_date,
-        status,
-        users!inner(first_name, last_name, affiliation)
-      `)
+      .select('*')
       .in('status', ['submitted', 'under_review'])
-      .not('author_id', 'in', '("00000000-0000-0000-0000-000000000001","00000000-0000-0000-0000-000000000002","00000000-0000-0000-0000-000000000003")')
       .order('submission_date', { ascending: false });
 
     if (submissionsError) {
@@ -59,25 +76,36 @@ export async function GET(request: NextRequest) {
 
     console.log(`Found ${submissions?.length || 0} submissions for review`);
 
-    // Transform submissions for pending reviews
-    const pendingReviews = (submissions || []).map((submission: any) => {
-      const user = Array.isArray(submission.users) ? submission.users[0] : submission.users;
-      return {
-        id: `pending-${submission.id}`,
-        submission_id: submission.id,
-        title: submission.title,
-        abstract: submission.abstract,
-        status: 'pending',
-        submitted_at: submission.submission_date,
-        due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-        author_first_name: user?.first_name || 'Unknown',
-        author_last_name: user?.last_name || 'Author',
-        author_affiliation: user?.affiliation || 'Unknown',
-        keywords: submission.keywords || [],
-        priority: 'medium',
-        manuscript_type: 'research_article'
-      };
-    });
+    // For each submission, get the author info
+    const pendingReviews = [];
+    if (submissions && submissions.length > 0) {
+      for (const submission of submissions) {
+        // Get author info
+        const { data: author, error: authorError } = await supabase
+          .from('users')
+          .select('first_name, last_name, affiliation')
+          .eq('id', submission.author_id)
+          .single();
+
+        if (!authorError && author) {
+          pendingReviews.push({
+            id: `pending-${submission.id}`,
+            submission_id: submission.id,
+            title: submission.title,
+            abstract: submission.abstract,
+            status: 'pending',
+            submitted_at: submission.submission_date,
+            due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+            author_first_name: author.first_name || 'Unknown',
+            author_last_name: author.last_name || 'Author',
+            author_affiliation: author.affiliation || 'Unknown',
+            keywords: submission.keywords || [],
+            priority: 'medium',
+            manuscript_type: submission.submission_type || 'research_article'
+          });
+        }
+      }
+    }
 
     const dashboardData = {
       pendingReviews: pendingReviews.slice(0, 5),
@@ -99,26 +127,27 @@ export async function GET(request: NextRequest) {
       dashboardData.pendingReviews = [{
         id: 'fallback-1',
         submission_id: 'none',
-        title: 'No real user submissions yet - Waiting for authors to submit manuscripts',
-        abstract: 'The system is ready to receive real submissions. Authors can register and submit manuscripts through the author portal. Real submissions will appear here automatically.',
+        title: 'No submissions available for review',
+        abstract: 'There are currently no manuscripts pending review. New submissions will appear here automatically when authors submit their work.',
         status: 'pending',
         submitted_at: new Date().toISOString(),
         due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
         author_first_name: 'System',
-        author_last_name: 'Ready',
-        author_affiliation: 'Awaiting Real Users',
-        keywords: ['real-users', 'submissions', 'ready'],
+        author_last_name: 'Message',
+        author_affiliation: 'Journal System',
+        keywords: ['waiting', 'submissions'],
         priority: 'low',
         manuscript_type: 'system_message'
       }];
     }
 
+    console.log('Returning dashboard data with', dashboardData.pendingReviews.length, 'pending reviews');
     return NextResponse.json(dashboardData, { headers: corsHeaders() });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Dashboard API error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch dashboard data' },
+      { error: 'Failed to fetch dashboard data', details: error?.message || 'Unknown error' },
       { status: 500, headers: corsHeaders() }
     );
   }

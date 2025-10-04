@@ -34,13 +34,11 @@ export interface AssignReviewerRequest {
 
 class ReviewApi {
   private async makeRequest(endpoint: string, options: RequestInit = {}) {
-    const token = getToken();
-    
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
+      credentials: 'include', // Use session-based authentication
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
         ...options.headers,
       },
     });
