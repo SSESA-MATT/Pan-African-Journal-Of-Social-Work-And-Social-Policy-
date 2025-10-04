@@ -59,12 +59,22 @@ export async function GET(request: NextRequest) {
 
     console.log('User has reviewer permissions, fetching submissions...');
     
-    // Fetch submissions that need review
+    // Fetch submissions that need review - using a more compatible query
     const { data: submissions, error: submissionsError } = await supabase
       .from('submissions')
-      .select('*')
+      .select(`
+        id,
+        title,
+        abstract,
+        submission_date,
+        author_id,
+        submission_type,
+        keywords,
+        status
+      `)
       .in('status', ['submitted', 'under_review'])
-      .order('submission_date', { ascending: false });
+      .order('submission_date', { ascending: false })
+      .limit(10);
 
     if (submissionsError) {
       console.error('Error fetching submissions:', submissionsError);
@@ -76,39 +86,52 @@ export async function GET(request: NextRequest) {
 
     console.log(`Found ${submissions?.length || 0} submissions for review`);
 
-    // For each submission, get the author info
+    // For each submission, get the author info separately
     const pendingReviews = [];
     if (submissions && submissions.length > 0) {
       for (const submission of submissions) {
         try {
-          // Get author info
-          const { data: author, error: authorError } = await supabase
+          // Get author info with a simpler query
+          const { data: author } = await supabase
             .from('users')
             .select('first_name, last_name, affiliation')
             .eq('id', submission.author_id)
             .single();
 
-          if (!authorError && author) {
-            pendingReviews.push({
-              id: `pending-${submission.id}`,
-              submission_id: submission.id,
-              title: submission.title,
-              abstract: submission.abstract,
-              status: 'pending',
-              submitted_at: submission.submission_date,
-              due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-              author_first_name: author.first_name || 'Unknown',
-              author_last_name: author.last_name || 'Author',
-              author_affiliation: author.affiliation || 'Unknown',
-              keywords: submission.keywords || [],
-              priority: 'medium',
-              manuscript_type: submission.submission_type || 'research_article'
-            });
-          } else {
-            console.log('Author not found for submission:', submission.id, authorError);
-          }
+          // Add the review item regardless of whether we found author info
+          pendingReviews.push({
+            id: `pending-${submission.id}`,
+            submission_id: submission.id,
+            title: submission.title,
+            abstract: submission.abstract,
+            status: 'pending',
+            submitted_at: submission.submission_date,
+            due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+            author_first_name: author?.first_name || 'Unknown',
+            author_last_name: author?.last_name || 'Author',
+            author_affiliation: author?.affiliation || 'Unknown',
+            keywords: submission.keywords || [],
+            priority: 'medium',
+            manuscript_type: submission.submission_type || 'research_article'
+          });
         } catch (authorErr) {
           console.error('Error fetching author for submission:', submission.id, authorErr);
+          // Still add the submission even if author fetch fails
+          pendingReviews.push({
+            id: `pending-${submission.id}`,
+            submission_id: submission.id,
+            title: submission.title,
+            abstract: submission.abstract,
+            status: 'pending',
+            submitted_at: submission.submission_date,
+            due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+            author_first_name: 'Unknown',
+            author_last_name: 'Author',
+            author_affiliation: 'Unknown',
+            keywords: submission.keywords || [],
+            priority: 'medium',
+            manuscript_type: submission.submission_type || 'research_article'
+          });
         }
       }
     }
