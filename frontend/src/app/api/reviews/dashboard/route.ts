@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
             affiliation
           )
         `)
-        .in('status', ['submitted', 'under_review'])
+        .eq('status', 'submitted')
         .order('submission_date', { ascending: false })
         .limit(10);
       
