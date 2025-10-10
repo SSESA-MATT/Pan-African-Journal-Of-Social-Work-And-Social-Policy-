@@ -139,8 +139,8 @@ export default function Home() {
           </h2>
           <p className="text-lg text-neutral-700 max-w-4xl mx-auto leading-relaxed">
             We are committed to advancing social work practice and policy in Africa by providing a platform for 
-            Indigenous knowledge systems, decolonial methodologies, and community-centered research that addresses 
-            the unique challenges and opportunities across the continent.
+            promoting African-centered approaches to social work and policy, grounded in indigenous knowledge 
+            and enriched by decolonial scholarship.
           </p>
         </div>
 

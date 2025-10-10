@@ -6,46 +6,53 @@ import Link from 'next/link';
 export default function AboutPage() {
   const editorialBoard = [
     {
-      name: "Dr. Amina Kone",
-      title: "Editor-in-Chief",
-      affiliation: "University of Ghana, School of Social Work",
-      bio: "Dr. Kone is a leading expert in Indigenous African social work methodologies with over 20 years of experience in community-based practice.",
-      image: "/images/editorial-board/amina-kone.jpg" // Placeholder
+      name: "Prof. Janestic Twikirize Mwende",
+      title: "Editor in Chief",
+      affiliation: "Makerere University, Department of Social Work and Social Administration",
+      bio: "Prof. Janestic specializes in social work and social development and has published extensively in this area",
+      image: "/images/editorial-board/janestic-mwende.jpg" // Placeholder
     },
     {
-      name: "Prof. Kwame Asante",
+      name: "Dr. Firminus Mugumya",
       title: "Associate Editor",
       affiliation: "Makerere University, Department of Social Work and Social Administration",
-      bio: "Prof. Asante specializes in decolonial social work theory and has published extensively on African-centered practice models.",
-      image: "/images/editorial-board/kwame-asante.jpg" // Placeholder
+      bio: "Dr. Firminus specializes in Social Development, community development, social change with an Engaged scholarship and has published widely in these areas",
+      image: "/images/editorial-board/firminus-mugumya.jpg" // Placeholder
     },
     {
-      name: "Dr. Fatima Al-Rashid",
+      name: "Dr. Denis Muhangi",
       title: "Associate Editor",
-      affiliation: "Cairo University, Faculty of Social Work",
-      bio: "Dr. Al-Rashid focuses on social policy development in North Africa and community empowerment strategies.",
-      image: "/images/editorial-board/fatima-al-rashid.jpg" // Placeholder
+      affiliation: "Makerere University, Department of Social Work and Social Administration",
+      bio: "Dr. Denis specializes in social research and evaluation in areas such as HIV/AIDS, malaria, livelihoods, water and sanitation, governance, and support for orphans and vulnerable children. He has published widely in these areas",
+      image: "/images/editorial-board/denis-muhangi.jpg" // Placeholder
     },
     {
-      name: "Dr. Nomsa Mbeki",
-      title: "Managing Editor",
-      affiliation: "University of Cape Town, Department of Social Development",
-      bio: "Dr. Mbeki brings expertise in research methodology and has extensive experience in peer review processes.",
-      image: "/images/editorial-board/nomsa-mbeki.jpg" // Placeholder
-    },
-    {
-      name: "Prof. Ibrahim Diallo",
+      name: "Dr. Sharlotte Tusasiirwe",
       title: "Editorial Board Member",
-      affiliation: "Cheikh Anta Diop University, School of Social Sciences",
-      bio: "Prof. Diallo is renowned for his work on traditional healing practices and their integration with modern social work.",
-      image: "/images/editorial-board/ibrahim-diallo.jpg" // Placeholder
+      affiliation: "Western Sydney University, School of Social Sciences",
+      bio: "Dr. Sharlotte Specializes in decolonizing social work education and practice to create culturally appropriate and contextually relevant profession. She has published widely in these areas.",
+      image: "/images/editorial-board/sharlotte-tusasiirwe.jpg" // Placeholder
     },
     {
-      name: "Dr. Grace Wanjiku",
+      name: "Prof. Paul Bakuluki",
       title: "Editorial Board Member",
-      affiliation: "Kenyatta University, Department of Community Development",
-      bio: "Dr. Wanjiku specializes in gender studies and women's empowerment within African social work contexts.",
-      image: "/images/editorial-board/grace-wanjiku.jpg" // Placeholder
+      affiliation: "Makerere University, Department of Social Work and Social Administration",
+      bio: "Prof. Paul specializes in social protection, social/gender norms, sexual, reproductive health and rights, and violence against women prevention in development and humanitarian settings particularly in Africa. He has published widely in these areas",
+      image: "/images/editorial-board/paul-bakuluki.jpg" // Placeholder
+    },
+    {
+      name: "Dr. Wilkins N Muhingi",
+      title: "Editorial Board Member",
+      affiliation: "Jomo Kenyatta University of Agriculture and Technology, Department of Rehabilitative Sciences",
+      bio: "Dr. Wilkins specializes in Child Safeguarding and Protection; Decolonization and Indigenization of Social Work; Clinical Interventions and Therapeutic Models; Gender-Based Violence; Gender and Development Issues; Assistive Technology; Digitization and Social Work; Climate Change; and Domestic Work. He has published widely in these areas",
+      image: "/images/editorial-board/wilkins-muhingi.jpg" // Placeholder
+    },
+    {
+      name: "Dr. Rugare Mugumbate",
+      title: "Editorial Board Member",
+      affiliation: "University of Wollongong, School of Health and Society",
+      bio: "Dr. Rugare specializes in refugees and migrants in the pre and first year of arrival phase from source regions and has published widely in these areas.",
+      image: "/images/editorial-board/rugare-mugumbate.jpg" // Placeholder
     }
   ];
 
@@ -125,9 +132,9 @@ export default function AboutPage() {
             </h2>
             <div className="prose prose-lg max-w-none text-center">
               <p className="text-xl text-neutral-700 leading-relaxed mb-6">
-                The Africa Journal of Social Work and Social Policy serves as a premier platform for scholarly discourse 
-                that promotes Indigenous African knowledge systems, decolonial social work methodologies, and community-centered 
-                research addressing the unique challenges and opportunities across the African continent.
+                We are committed to advancing social work practice and policy in Africa by providing a platform for 
+                promoting African-centered approaches to social work and policy, grounded in indigenous knowledge 
+                and enriched by decolonial scholarship.
               </p>
               <p className="text-lg text-neutral-600 leading-relaxed">
                 We are committed to fostering academic excellence while ensuring that research remains grounded in 
