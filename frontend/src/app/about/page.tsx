@@ -136,12 +136,6 @@ export default function AboutPage() {
                 promoting African-centered approaches to social work and policy, grounded in indigenous knowledge 
                 and enriched by decolonial scholarship.
               </p>
-              <p className="text-lg text-neutral-600 leading-relaxed">
-                We are committed to fostering academic excellence while ensuring that research remains grounded in 
-                African realities, values, and aspirations. Our journal bridges the gap between traditional wisdom 
-                and contemporary social work practice, creating space for voices that have been historically marginalized 
-                in academic discourse.
-              </p>
             </div>
           </div>
         </div>
