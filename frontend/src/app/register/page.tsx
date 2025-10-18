@@ -46,8 +46,8 @@ export default function RegisterPage() {
     }
 
     try {
-      // Use complete registration (creates user + auto-login)
-      const response = await fetch('/api/auth/register-complete', {
+      // Use direct registration (bypasses email confirmation issues)
+      const response = await fetch('/api/auth/register-direct', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -336,9 +336,9 @@ export default function RegisterPage() {
                 name="terms"
                 type="checkbox"
                 required
-                className="h-4 w-4 text-accent-green focus:ring-accent-green border-neutral-300 rounded mt-1"
+                className="h-4 w-4 text-accent-green focus:ring-accent-green border-neutral-300 rounded mt-1 cursor-pointer"
               />
-              <label htmlFor="terms" className="ml-2 block text-sm text-neutral-900">
+              <label htmlFor="terms" className="ml-2 block text-sm text-neutral-900 cursor-pointer">
                 I agree to the{' '}
                 <Link href="/terms" className="text-accent-green hover:text-accent-green/80">
                   Terms of Service
@@ -356,9 +356,9 @@ export default function RegisterPage() {
                 id="newsletter"
                 name="newsletter"
                 type="checkbox"
-                className="h-4 w-4 text-accent-green focus:ring-accent-green border-neutral-300 rounded mt-1"
+                className="h-4 w-4 text-accent-green focus:ring-accent-green border-neutral-300 rounded mt-1 cursor-pointer"
               />
-              <label htmlFor="newsletter" className="ml-2 block text-sm text-neutral-900">
+              <label htmlFor="newsletter" className="ml-2 block text-sm text-neutral-900 cursor-pointer">
                 Subscribe to our newsletter for updates on new publications and calls for papers
               </label>
             </div>
