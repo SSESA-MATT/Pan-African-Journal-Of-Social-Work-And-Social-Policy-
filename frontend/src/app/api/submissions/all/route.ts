@@ -2,36 +2,81 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
-export async function GET(request: NextRequest) {
+interface SubmissionData {
+  id: string;
+  title: string;
+  abstract: string;
+  status: string;
+  author_first_name: string;
+  author_last_name: string;
+  author_email: string;
+  author_affiliation: string;
+  submission_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ApiResponse {
+  data?: SubmissionData[];
+  error?: string;
+  details?: string;
+  count?: number;
+}
+
+export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse | SubmissionData[]>> {
   try {
     const supabase = createRouteHandlerClient({ cookies });
     
-    // Get current authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    console.log('=== SUBMISSIONS ALL API START ===');
     
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' }, 
-        { status: 401 }
-      );
+    // Get authenticated session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error('Session error:', sessionError);
+      return NextResponse.json({
+        error: 'Authentication failed',
+        details: sessionError.message
+      }, { status: 401 });
     }
 
-    // Get user role to ensure admin/editor access
-    const { data: userProfile } = await supabase
+    if (!session?.user) {
+      console.log('No authenticated user found');
+      return NextResponse.json({
+        error: 'Authentication required'
+      }, { status: 401 });
+    }
+
+    console.log('Authenticated user:', session.user.email);
+
+    // Verify user exists in database and get role
+    const { data: userProfile, error: profileError } = await supabase
       .from('users')
-      .select('role')
-      .eq('id', user.id)
+      .select('id, role, email')
+      .eq('id', session.user.id)
       .single();
 
-    if (!userProfile || !['admin', 'editor'].includes(userProfile.role)) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions' }, 
-        { status: 403 }
-      );
+    if (profileError) {
+      console.error('User profile error:', profileError);
+      return NextResponse.json({
+        error: 'User profile not found',
+        details: profileError.message
+      }, { status: 403 });
     }
 
-    // Get all submissions
-    const { data: submissions, error: submissionsError } = await supabase
+    console.log('User profile found:', { role: userProfile.role, email: userProfile.email });
+
+    // Check if user has admin permissions
+    if (userProfile.role !== 'admin' && userProfile.role !== 'editor') {
+      console.log('Access denied - insufficient permissions');
+      return NextResponse.json({
+        error: 'Insufficient permissions',
+        details: 'Admin or editor role required'
+      }, { status: 403 });
+    }
+
+    // Fetch all submissions with proper error handling
+    const { data: submissions, error: submissionsError, count } = await supabase
       .from('submissions')
       .select(`
         id,
@@ -45,24 +90,29 @@ export async function GET(request: NextRequest) {
         submission_date,
         created_at,
         updated_at
-      `)
+      `, { count: 'exact' })
       .order('created_at', { ascending: false });
 
     if (submissionsError) {
-      console.error('Error fetching submissions:', submissionsError);
-      return NextResponse.json(
-        { error: 'Failed to fetch submissions', details: submissionsError.message }, 
-        { status: 500 }
-      );
+      console.error('Database error fetching submissions:', submissionsError);
+      return NextResponse.json({
+        error: 'Database query failed',
+        details: submissionsError.message
+      }, { status: 500 });
     }
+
+    console.log(`Successfully fetched ${submissions?.length || 0} submissions`);
+    console.log('=== SUBMISSIONS ALL API END ===');
 
     return NextResponse.json(submissions || []);
 
-  } catch (error) {
-    console.error('Submissions all API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' }, 
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    console.error('Unexpected error in submissions API:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
+    return NextResponse.json({
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? errorMessage : 'An unexpected error occurred'
+    }, { status: 500 });
   }
 }
