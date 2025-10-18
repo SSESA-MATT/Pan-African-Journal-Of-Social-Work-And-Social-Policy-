@@ -46,8 +46,8 @@ export default function RegisterPage() {
     }
 
     try {
-      // Use simple registration with better error handling
-      const response = await fetch('/api/auth/register-simple', {
+      // Use no-email registration (bypasses email confirmation completely)
+      const response = await fetch('/api/auth/register-no-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
