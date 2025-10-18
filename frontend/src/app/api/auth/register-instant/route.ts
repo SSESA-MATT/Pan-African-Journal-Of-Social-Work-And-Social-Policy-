@@ -8,6 +8,14 @@ export async function POST(request: NextRequest) {
 
     console.log('Instant registration attempt:', { email, first_name, last_name, role });
 
+    // Check if admin client is available
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: 'Instant registration not available. Admin privileges required.' },
+        { status: 503 }
+      );
+    }
+
     // Validate required fields
     if (!email || !password || !first_name || !last_name) {
       return NextResponse.json(

@@ -1,50 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
-// Use service role key for admin operations (bypasses RLS)
+// Use service role key for admin operations (bypasses RLS) - fallback to regular client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+const supabaseAdmin = supabaseServiceKey ? 
+  createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }) : null;
 
 export async function GET(request: NextRequest) {
   try {
     console.log('=== ADMIN SUBMISSIONS API ===');
     
-    // Get Authorization header
-    const authHeader = request.headers.get('Authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    // Use cookie-based auth for production compatibility
+    const supabase = createRouteHandlerClient({ cookies });
     
-    if (!token) {
+    // Get the current user
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session?.user) {
       return NextResponse.json(
-        { error: 'No authorization token provided' }, 
+        { error: 'Authentication required' }, 
         { status: 401 }
       );
     }
 
-    // Verify the token using regular supabase client
-    const supabase = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError || !user) {
-      return NextResponse.json(
-        { error: 'Invalid token' }, 
-        { status: 401 }
-      );
-    }
+    console.log('User authenticated:', session.user.email);
 
-    console.log('Token verified for user:', user.email);
-
-    // Check user role using admin client (bypasses RLS)
-    const { data: userProfile, error: profileError } = await supabaseAdmin
+    // Check user role - use admin client if available, otherwise regular client
+    const clientToUse = supabaseAdmin || supabase;
+    const { data: userProfile, error: profileError } = await clientToUse
       .from('users')
       .select('role')
-      .eq('id', user.id)
+      .eq('id', session.user.id)
       .single();
 
     if (profileError || !userProfile) {
@@ -64,8 +59,8 @@ export async function GET(request: NextRequest) {
 
     console.log('User role verified:', userProfile.role);
 
-    // Get submissions using admin client (bypasses RLS)
-    const { data: submissions, error: submissionsError } = await supabaseAdmin
+    // Get submissions using appropriate client
+    const { data: submissions, error: submissionsError } = await clientToUse
       .from('submissions')
       .select(`
         id,
