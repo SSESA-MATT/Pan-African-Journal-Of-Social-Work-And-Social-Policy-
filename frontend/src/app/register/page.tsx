@@ -46,8 +46,8 @@ export default function RegisterPage() {
     }
 
     try {
-      // Use direct registration (bypasses email confirmation issues)
-      const response = await fetch('/api/auth/register-direct', {
+      // Use simple registration with better error handling
+      const response = await fetch('/api/auth/register-simple', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -64,8 +64,21 @@ export default function RegisterPage() {
 
       const result = await response.json();
 
+      console.log('Registration response:', { status: response.status, result });
+
       if (!response.ok) {
-        throw new Error(result.error || 'Registration failed');
+        // Handle specific error codes
+        if (result.code === 'USER_EXISTS') {
+          setError('An account with this email already exists. Please try signing in instead.');
+        } else if (result.code === 'EMAIL_ERROR') {
+          setError('There was an issue with email configuration. Please try again or contact support.');
+        } else if (result.code === 'SIGNUP_DISABLED') {
+          setError('Registration is currently disabled. Please contact support.');
+        } else {
+          setError(result.error || `Registration failed (${response.status})`);
+        }
+        setLoading(false);
+        return;
       }
 
       const roleName = getRoleName(formData.role as any);
