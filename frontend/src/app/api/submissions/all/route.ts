@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+
+// Use service role key for admin operations (bypasses RLS) - fallback to regular client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabaseAdmin = supabaseServiceKey ? 
+  createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }) : null;
 
 interface SubmissionData {
   id: string;
@@ -49,8 +62,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
 
     console.log('Authenticated user:', session.user.email);
 
-    // Verify user exists in database and get role
-    const { data: userProfile, error: profileError } = await supabase
+    // Check user role - use admin client if available, otherwise regular client
+    const clientToUse = supabaseAdmin || supabase;
+    const { data: userProfile, error: profileError } = await clientToUse
       .from('users')
       .select('id, role, email')
       .eq('id', session.user.id)
@@ -75,8 +89,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
       }, { status: 403 });
     }
 
-    // Fetch all submissions with proper error handling
-    const { data: submissions, error: submissionsError, count } = await supabase
+    // Fetch all submissions with proper error handling using appropriate client
+    const { data: submissions, error: submissionsError, count } = await clientToUse
       .from('submissions')
       .select(`
         id,

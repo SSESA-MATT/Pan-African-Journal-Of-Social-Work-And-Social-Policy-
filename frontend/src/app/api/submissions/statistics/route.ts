@@ -1,37 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+
+// Use service role key for admin operations (bypasses RLS) - fallback to regular client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabaseAdmin = supabaseServiceKey ? 
+  createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }) : null;
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('Statistics API error:');
+    
     const supabase = createRouteHandlerClient({ cookies });
     
     // Get current authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (authError || !user) {
+    if (sessionError || !session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' }, 
         { status: 401 }
       );
     }
 
-    // Get user role
-    const { data: userProfile } = await supabase
+    console.log('User authenticated:', session.user.email);
+
+    // Check user role - use admin client if available, otherwise regular client
+    const clientToUse = supabaseAdmin || supabase;
+    const { data: userProfile, error: profileError } = await clientToUse
       .from('users')
       .select('role')
-      .eq('id', user.id)
+      .eq('id', session.user.id)
       .single();
 
-    if (!userProfile || !['admin', 'editor'].includes(userProfile.role)) {
+    if (profileError || !userProfile) {
+      console.error('Profile error:', profileError);
+      return NextResponse.json(
+        { error: 'User profile not found' }, 
+        { status: 404 }
+      );
+    }
+
+    if (!['admin', 'editor'].includes(userProfile.role)) {
       return NextResponse.json(
         { error: 'Insufficient permissions' }, 
         { status: 403 }
       );
     }
 
-    // Get submission statistics
-    const { data: submissions, error: submissionsError } = await supabase
+    console.log('User role verified:', userProfile.role);
+
+    // Get submission statistics using appropriate client
+    const { data: submissions, error: submissionsError } = await clientToUse
       .from('submissions')
       .select('status');
 
