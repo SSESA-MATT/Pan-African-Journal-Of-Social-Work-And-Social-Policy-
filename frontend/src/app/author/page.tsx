@@ -9,7 +9,7 @@ export default function AuthorPortalPage() {
   const { user } = useAuth();
 
   return (
-    <ProtectedRoute allowedRoles={['author']}>
+    <ProtectedRoute allowedRoles={['author', 'admin']}>
       <AuthorDashboard />
     </ProtectedRoute>
   );
