@@ -61,36 +61,41 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   // Check role-based access
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    if (fallback) {
-      return <>{fallback}</>;
+    // Always allow admin access regardless of allowedRoles
+    if (user && user.role === 'admin') {
+      return <>{children}</>;
     }
 
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Access Denied
-            </h2>
-            <p className="text-gray-600 mb-6">
-              You don't have permission to access this page.
-              <br />
-              Required roles: {allowedRoles.join(', ')}
-              <br />
-              Your role: {user.role}
-            </p>
-            <button
-              onClick={() => window.history.back()}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-            >
-              Go Back
-            </button>
+    if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+      if (fallback) {
+        return <>{fallback}</>;
+      }
+
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-gray-50">
+          <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Access Denied
+              </h2>
+              <p className="text-gray-600 mb-6">
+                You don't have permission to access this page.
+                <br />
+                Required roles: {allowedRoles.join(', ')}
+                <br />
+                Your role: {user.role}
+              </p>
+              <button
+                onClick={() => window.history.back()}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                Go Back
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
   // User is authenticated and authorized
   return <>{children}</>;
