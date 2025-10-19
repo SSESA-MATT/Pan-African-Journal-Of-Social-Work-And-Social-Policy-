@@ -27,52 +27,9 @@ export async function POST(request: NextRequest) {
 
     const supabase = createRouteHandlerClient({ cookies });
 
-    // Check if user already exists in our database
-    const { data: existingProfile } = await supabase
-      .from('users')
-      .select('email')
-      .eq('email', email.toLowerCase())
-      .single();
-
-    if (existingProfile) {
-      return NextResponse.json(
-        { error: 'An account with this email already exists. Please try signing in instead.' },
-        { status: 400 }
-      );
-    }
-
-    // Create user in database without requiring auth (bypass email confirmation)
-    const userId = crypto.randomUUID();
-    
-        const { error: userError } = await supabase
-          .from('users')
-          .insert([
-            {
-              id: userId,
-              email: email.toLowerCase(),
-              first_name,
-              last_name,
-              affiliation: affiliation || '',
-              role: role || 'author',
-              // Add a temporary password hash placeholder (will be updated when they first login)
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }
-          ]);
-
-    if (userError) {
-      console.error('User creation error:', userError);
-      return NextResponse.json(
-        { error: `Failed to create user account: ${userError.message}` },
-        { status: 500 }
-      );
-    }
-
-    console.log('User created successfully in database:', userId);
-
-    // Try to create the user in Supabase Auth as well (for future login)
+    // Register user using Supabase Auth (with email confirmation)
     try {
-      const { data: authData } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.toLowerCase(),
         password,
         options: {
@@ -82,29 +39,36 @@ export async function POST(request: NextRequest) {
             affiliation: affiliation || '',
             role: role || 'author'
           },
-          emailRedirectTo: undefined // Don't send email
+          emailRedirectTo: process.env.NEXT_PUBLIC_BASE_URL
+            ? `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`
+            : undefined
         }
       });
-      
-      console.log('Auth user creation attempted, result:', authData ? 'success' : 'failed');
-    } catch (authError) {
-      console.log('Auth user creation failed (continuing anyway):', authError);
+      if (error) {
+        return NextResponse.json(
+          { error: `Registration failed: ${error.message}` },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json({
+        message: 'Registration successful! Please check your email to confirm your account before signing in.',
+        user: {
+          email: email.toLowerCase(),
+          first_name,
+          last_name,
+          affiliation: affiliation || '',
+          role: role || 'author'
+        },
+        success: true,
+        needsEmailConfirmation: true,
+        canLoginImmediately: false
+      });
+    } catch (error) {
+      return NextResponse.json(
+        { error: `Registration failed: ${error instanceof Error ? error.message : 'Unknown error'}` },
+        { status: 500 }
+      );
     }
-
-    return NextResponse.json({
-      message: 'Registration successful! You can now sign in with your credentials.',
-      user: {
-        id: userId,
-        email: email.toLowerCase(),
-        first_name,
-        last_name,
-        affiliation: affiliation || '',
-        role: role || 'author'
-      },
-      success: true,
-      needsEmailConfirmation: false,
-      canLoginImmediately: true
-    });
 
   } catch (error) {
     console.error('No-email registration error:', error);
