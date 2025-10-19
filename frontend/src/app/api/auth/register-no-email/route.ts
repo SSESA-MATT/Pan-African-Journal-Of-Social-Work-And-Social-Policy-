@@ -44,22 +44,21 @@ export async function POST(request: NextRequest) {
     // Create user in database without requiring auth (bypass email confirmation)
     const userId = crypto.randomUUID();
     
-    const { error: userError } = await supabase
-      .from('users')
-      .insert([
-        {
-          id: userId,
-          email: email.toLowerCase(),
-          first_name,
-          last_name,
-          affiliation: affiliation || '',
-          role: role || 'author',
-          // Add a temporary password hash placeholder (will be updated when they first login)
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          email_confirmed: true // Mark as confirmed since we're bypassing email
-        }
-      ]);
+        const { error: userError } = await supabase
+          .from('users')
+          .insert([
+            {
+              id: userId,
+              email: email.toLowerCase(),
+              first_name,
+              last_name,
+              affiliation: affiliation || '',
+              role: role || 'author',
+              // Add a temporary password hash placeholder (will be updated when they first login)
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+          ]);
 
     if (userError) {
       console.error('User creation error:', userError);
@@ -100,8 +99,7 @@ export async function POST(request: NextRequest) {
         first_name,
         last_name,
         affiliation: affiliation || '',
-        role: role || 'author',
-        email_confirmed: true
+        role: role || 'author'
       },
       success: true,
       needsEmailConfirmation: false,
