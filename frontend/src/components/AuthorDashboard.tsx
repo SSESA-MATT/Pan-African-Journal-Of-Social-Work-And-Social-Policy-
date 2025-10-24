@@ -102,7 +102,7 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
     published: manuscripts.filter(m => m.status === 'published').length,
   };
 
-  if (!user || user.role !== 'author') {
+  if (!user || !['author', 'admin'].includes(user.role)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

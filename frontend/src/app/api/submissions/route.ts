@@ -41,12 +41,28 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id;
     console.log('Fetching submissions for secure user ID:', userId);
 
-    // Fetch submissions for the authenticated user
-    const { data: submissions, error } = await supabase
-      .from('submissions')
-      .select('*')
-      .eq('author_id', userId)
-      .order('created_at', { ascending: false });
+    // Determine user role so admins/editors can see all submissions
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (profileError) {
+      console.error('Failed to fetch user profile:', profileError);
+      // Continue but we'll treat user as regular author if profile lookup fails
+    }
+
+    const role = userProfile?.role;
+    console.log('Authenticated user role:', role);
+
+    // Build the query: admins/editors can fetch all submissions, authors only their own
+    const submissionsQuery = supabase.from('submissions').select('*').order('created_at', { ascending: false });
+
+    if (role !== 'admin' && role !== 'editor') {
+      submissionsQuery.eq('author_id', userId);
+    }
+    const { data: submissions, error } = await submissionsQuery;
 
     if (error) {
       console.error('Database GET error:', error);
