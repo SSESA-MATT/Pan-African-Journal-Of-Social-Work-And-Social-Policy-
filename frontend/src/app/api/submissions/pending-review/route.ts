@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get pending reviews with submission details
+    // Get pending reviews with submission details (select safe submission fields)
     const { data: pendingReviews, error: reviewsError } = await supabase
       .from('reviews')
       .select(`
@@ -32,9 +32,7 @@ export async function GET(request: NextRequest) {
           id,
           title,
           abstract,
-          author_first_name,
-          author_last_name,
-          author_email,
+          author_id,
           status
         )
       `)
@@ -47,6 +45,33 @@ export async function GET(request: NextRequest) {
         { error: 'Failed to fetch pending reviews', details: reviewsError.message }, 
         { status: 500 }
       );
+    }
+
+    // Enrich nested submissions with author profile information
+    try {
+      const subs = (pendingReviews || []).flatMap((r: any) => (r.submissions || []).map((s: any) => s));
+      const authorIds = Array.from(new Set(subs.map((s: any) => s.author_id).filter(Boolean)));
+      if (authorIds.length > 0) {
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, first_name, last_name, email, affiliation')
+          .in('id', authorIds);
+        if (!usersError && usersData) {
+          const usersById = (usersData || []).reduce((acc: any, u: any) => { acc[u.id] = u; return acc; }, {} as Record<string, any>);
+          (pendingReviews || []).forEach((r: any) => {
+            if (Array.isArray(r.submissions)) {
+              r.submissions = r.submissions.map((s: any) => ({
+                ...s,
+                author_first_name: usersById[s.author_id]?.first_name || null,
+                author_last_name: usersById[s.author_id]?.last_name || null,
+                author_email: usersById[s.author_id]?.email || null,
+              }));
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to enrich pending review submissions with author profiles:', e);
     }
 
     return NextResponse.json(pendingReviews || []);

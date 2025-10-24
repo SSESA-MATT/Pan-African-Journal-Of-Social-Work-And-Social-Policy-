@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     console.log('User role verified:', userProfile.role);
 
-    // Get submissions using appropriate client
+    // Get submissions using appropriate client (select safe fields)
     const { data: submissions, error: submissionsError } = await clientToUse
       .from('submissions')
       .select(`
@@ -67,10 +67,7 @@ export async function GET(request: NextRequest) {
         title,
         abstract,
         status,
-        author_first_name,
-        author_last_name,
-        author_email,
-        author_affiliation,
+        author_id,
         submission_date,
         created_at,
         updated_at
@@ -85,8 +82,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('Found submissions:', submissions?.length || 0);
+    // Enrich with author profiles when possible
+    try {
+      const authorIds = Array.from(new Set((submissions || []).map((s: any) => s.author_id).filter(Boolean)));
+      if (authorIds.length > 0) {
+        const { data: usersData, error: usersError } = await clientToUse
+          .from('users')
+          .select('id, first_name, last_name, email, affiliation')
+          .in('id', authorIds);
+        if (!usersError && usersData) {
+          const usersById = (usersData || []).reduce((acc: any, u: any) => { acc[u.id] = u; return acc; }, {} as Record<string, any>);
+          const enriched = (submissions || []).map((s: any) => ({
+            ...s,
+            author_first_name: usersById[s.author_id]?.first_name || null,
+            author_last_name: usersById[s.author_id]?.last_name || null,
+            author_email: usersById[s.author_id]?.email || null,
+            author_affiliation: usersById[s.author_id]?.affiliation || null,
+          }));
+          console.log('Found submissions:', enriched.length || 0);
+          return NextResponse.json(enriched || []);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to enrich admin submissions with authors:', e);
+    }
 
+    console.log('Found submissions:', submissions?.length || 0);
     return NextResponse.json(submissions || []);
 
   } catch (error) {

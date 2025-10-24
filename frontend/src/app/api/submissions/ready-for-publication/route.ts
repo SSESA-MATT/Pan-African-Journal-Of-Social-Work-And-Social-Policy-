@@ -16,17 +16,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get submissions ready for publication (accepted status)
+    // Get submissions ready for publication (accepted status) - select safe fields
     const { data: readySubmissions, error: submissionsError } = await supabase
       .from('submissions')
       .select(`
         id,
         title,
         abstract,
-        author_first_name,
-        author_last_name,
-        author_email,
-        author_affiliation,
+        author_id,
         status,
         submission_date,
         created_at,
@@ -41,6 +38,30 @@ export async function GET(request: NextRequest) {
         { error: 'Failed to fetch ready submissions', details: submissionsError.message }, 
         { status: 500 }
       );
+    }
+
+    // Enrich with author profiles
+    try {
+      const authorIds = Array.from(new Set((readySubmissions || []).map((s: any) => s.author_id).filter(Boolean)));
+      if (authorIds.length > 0) {
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, first_name, last_name, email, affiliation')
+          .in('id', authorIds);
+        if (!usersError && usersData) {
+          const usersById = (usersData || []).reduce((acc: any, u: any) => { acc[u.id] = u; return acc; }, {} as Record<string, any>);
+          const enriched = (readySubmissions || []).map((s: any) => ({
+            ...s,
+            author_first_name: usersById[s.author_id]?.first_name || null,
+            author_last_name: usersById[s.author_id]?.last_name || null,
+            author_email: usersById[s.author_id]?.email || null,
+            author_affiliation: usersById[s.author_id]?.affiliation || null,
+          }));
+          return NextResponse.json(enriched || []);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to enrich ready submissions with authors:', e);
     }
 
     return NextResponse.json(readySubmissions || []);
