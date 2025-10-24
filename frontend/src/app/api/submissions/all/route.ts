@@ -62,19 +62,47 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
 
     console.log('Authenticated user:', session.user.email);
 
-    // Check user role - use admin client if available, otherwise regular client
+    // Check user role - prefer admin client for checks when available
     const clientToUse = supabaseAdmin || supabase;
-    const { data: userProfile, error: profileError } = await clientToUse
-      .from('users')
-      .select('id, role, email')
-      .eq('id', session.user.id)
-      .single();
+    console.log('Admin client available:', !!supabaseAdmin);
 
-    if (profileError) {
+    let userProfile: any = null;
+    let profileError: any = null;
+
+    try {
+      const profileRes = await clientToUse
+        .from('users')
+        .select('id, role, email')
+        .eq('id', session.user.id)
+        .single();
+      userProfile = profileRes.data;
+      profileError = profileRes.error;
+    } catch (e) {
+      profileError = e;
+    }
+
+    // If profile lookup failed using the initial client, and we have an admin client, try with it
+    if (profileError && supabaseAdmin) {
+      try {
+        console.warn('Profile lookup failed with primary client, trying admin client');
+        const adminProfile = await supabaseAdmin
+          .from('users')
+          .select('id, role, email')
+          .eq('id', session.user.id)
+          .single();
+        userProfile = adminProfile.data;
+        profileError = adminProfile.error;
+      } catch (e) {
+        profileError = e;
+      }
+    }
+
+    if (profileError || !userProfile) {
       console.error('User profile error:', profileError);
+      const debug = request.headers.get('x-debug') === '1';
       return NextResponse.json({
         error: 'User profile not found',
-        details: profileError.message
+        details: debug ? (profileError?.message || String(profileError)) : 'Profile lookup failed'
       }, { status: 403 });
     }
 
@@ -109,9 +137,10 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
 
     if (submissionsError) {
       console.error('Database error fetching submissions:', submissionsError);
+      const debug = request.headers.get('x-debug') === '1';
       return NextResponse.json({
         error: 'Database query failed',
-        details: submissionsError.message
+        details: debug ? submissionsError.message : 'Query failed'
       }, { status: 500 });
     }
 

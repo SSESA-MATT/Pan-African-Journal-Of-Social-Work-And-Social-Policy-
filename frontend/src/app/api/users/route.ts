@@ -39,8 +39,9 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Database GET users error:', error);
+      const debug = request.headers.get('x-debug') === '1';
       return NextResponse.json(
-        { error: 'Failed to fetch users', details: error.message },
+        { error: 'Failed to fetch users', details: debug ? error.message : 'Query failed' },
         { status: 500, headers: corsHeaders() }
       );
     }

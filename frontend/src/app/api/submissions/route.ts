@@ -42,18 +42,35 @@ export async function GET(request: NextRequest) {
     console.log('Fetching submissions for secure user ID:', userId);
 
     // Determine user role so admins/editors can see all submissions
-    const { data: userProfile, error: profileError } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', userId)
-      .single();
-
-    if (profileError) {
-      console.error('Failed to fetch user profile:', profileError);
-      // Continue but we'll treat user as regular author if profile lookup fails
+    let role: string | undefined = undefined;
+    try {
+      const profileRes = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      if (profileRes.error) throw profileRes.error;
+      role = profileRes.data?.role;
+    } catch (profileErr) {
+      console.error('Failed to fetch user profile with route client:', profileErr);
+      // Try admin client if available to get role for diagnostics
+      try {
+        // import admin client dynamically to avoid circular imports at runtime
+        const { supabaseAdmin } = await import('@/lib/supabase-admin');
+        if (supabaseAdmin) {
+          const adminProfile = await supabaseAdmin
+            .from('users')
+            .select('role')
+            .eq('id', userId)
+            .single();
+          if (!adminProfile.error) role = adminProfile.data?.role;
+          else console.warn('Admin profile lookup also failed:', adminProfile.error);
+        }
+      } catch (adminLookupErr) {
+        console.warn('Admin lookup attempt failed:', adminLookupErr);
+      }
     }
 
-    const role = userProfile?.role;
     console.log('Authenticated user role:', role);
 
     // Build the query: admins/editors can fetch all submissions, authors only their own
@@ -66,7 +83,8 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Database GET error:', error);
-      return NextResponse.json({ error: 'Failed to fetch submissions.', details: error.message }, { status: 500, headers: corsHeaders() });
+      const debug = request.headers.get('x-debug') === '1';
+      return NextResponse.json({ error: 'Failed to fetch submissions.', details: debug ? error.message : 'Query failed' }, { status: 500, headers: corsHeaders() });
     }
 
     console.log(`Found ${submissions?.length || 0} submissions for user ${userId}`);

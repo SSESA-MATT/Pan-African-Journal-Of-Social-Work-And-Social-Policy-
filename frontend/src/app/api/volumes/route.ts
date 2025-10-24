@@ -39,8 +39,9 @@ export async function GET(request: NextRequest) {
 
     if (volumesError) {
       console.error('Error fetching volumes:', volumesError);
+      const debug = request.headers.get('x-debug') === '1';
       return NextResponse.json(
-        { error: 'Failed to fetch volumes', details: volumesError.message }, 
+        { error: 'Failed to fetch volumes', details: debug ? volumesError.message : 'Query failed' }, 
         { status: 500 }
       );
     }

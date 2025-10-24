@@ -13,6 +13,8 @@ const API_BASE_URL = '/api';
 
 // Use same-origin cookies for auth. Next.js API routes receive cookies automatically
 // Helper: centralized request wrapper that includes credentials and unified error handling
+// When NEXT_PUBLIC_DEBUG_API is set to '1' the client will send x-debug=1 to ask APIs for richer error details
+const DEBUG_API = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEBUG_API === '1';
 const apiRequest = async (input: RequestInfo, init: RequestInit = {}) => {
   const opts: RequestInit = {
     credentials: 'include', // send cookies for session authentication
@@ -20,6 +22,7 @@ const apiRequest = async (input: RequestInfo, init: RequestInit = {}) => {
       // Default JSON header - form-data callers will override or omit
       'Content-Type': 'application/json',
       ...(init.headers || {}),
+      ...(DEBUG_API ? { 'x-debug': '1' } : {}),
     },
     ...init,
   };
