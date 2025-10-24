@@ -11,21 +11,41 @@ import {
 // Use Next.js API routes instead of external backend
 const API_BASE_URL = '/api';
 
-// Helper function to get auth headers
-const getAuthHeaders = (): HeadersInit => {
-  const token = localStorage.getItem('token');
-  return {
-    'Authorization': token ? `Bearer ${token}` : '',
+// Use same-origin cookies for auth. Next.js API routes receive cookies automatically
+// Helper: centralized request wrapper that includes credentials and unified error handling
+const apiRequest = async (input: RequestInfo, init: RequestInit = {}) => {
+  const opts: RequestInit = {
+    credentials: 'include', // send cookies for session authentication
+    headers: {
+      // Default JSON header - form-data callers will override or omit
+      'Content-Type': 'application/json',
+      ...(init.headers || {}),
+    },
+    ...init,
   };
-};
 
-// Helper function to handle API responses
-const handleResponse = async (response: Response) => {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+  const response = await fetch(input, opts);
+
+  const contentType = response.headers.get('content-type') || '';
+  let body: any = null;
+  try {
+    if (contentType.includes('application/json')) {
+      body = await response.json();
+    } else {
+      body = await response.text();
+    }
+  } catch (e) {
+    body = null;
   }
-  return response.json();
+
+  if (!response.ok) {
+    const err: any = new Error(body?.message || `HTTP error ${response.status}`);
+    err.status = response.status;
+    err.body = body;
+    throw err;
+  }
+
+  return body;
 };
 
 export const submissionApi = {
@@ -43,58 +63,36 @@ export const submissionApi = {
     formData.append('co_authors', JSON.stringify(submissionData.co_authors));
     formData.append('manuscript', manuscriptFile);
 
-    const response = await fetch(`${API_BASE_URL}/submissions`, {
+    // For form-data, omit the Content-Type so the browser sets the boundary
+    const response = await apiRequest(`${API_BASE_URL}/submissions`, {
       method: 'POST',
-      headers: getAuthHeaders(),
       body: formData,
+      // don't set Content-Type here
+      headers: {},
     });
 
-    return handleResponse(response);
+    return response;
   },
 
   /**
    * Get current user's submissions
    */
   async getMySubmissions(): Promise<{ submissions: Submission[] }> {
-    const response = await fetch(`${API_BASE_URL}/submissions/my`, {
-      method: 'GET',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-    });
-
-    return handleResponse(response);
+    return apiRequest(`${API_BASE_URL}/submissions/my`, { method: 'GET' });
   },
 
   /**
    * Get all submissions (admin/editor only)
    */
   async getAllSubmissions(): Promise<{ submissions: SubmissionWithAuthor[] }> {
-    const response = await fetch(`${API_BASE_URL}/submissions/all`, {
-      method: 'GET',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-    });
-
-    return handleResponse(response);
+    return apiRequest(`${API_BASE_URL}/submissions/all`, { method: 'GET' });
   },
 
   /**
    * Get submission by ID
    */
   async getSubmissionById(id: string): Promise<{ submission: SubmissionWithAuthor }> {
-    const response = await fetch(`${API_BASE_URL}/submissions/${id}`, {
-      method: 'GET',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-    });
-
-    return handleResponse(response);
+    return apiRequest(`${API_BASE_URL}/submissions/${id}`, { method: 'GET' });
   },
 
   /**
@@ -104,16 +102,10 @@ export const submissionApi = {
     id: string,
     statusUpdate: UpdateSubmissionStatusRequest
   ): Promise<{ message: string; submission: Submission }> {
-    const response = await fetch(`${API_BASE_URL}/submissions/${id}/status`, {
+    return apiRequest(`${API_BASE_URL}/submissions/${id}/status`, {
       method: 'PUT',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(statusUpdate),
     });
-
-    return handleResponse(response);
   },
 
   /**
@@ -126,58 +118,34 @@ export const submissionApi = {
     const formData = new FormData();
     formData.append('manuscript', manuscriptFile);
 
-    const response = await fetch(`${API_BASE_URL}/submissions/${id}/manuscript`, {
+    const response = await apiRequest(`${API_BASE_URL}/submissions/${id}/manuscript`, {
       method: 'PUT',
-      headers: getAuthHeaders(),
       body: formData,
+      headers: {},
     });
 
-    return handleResponse(response);
+    return response;
   },
 
   /**
    * Get submission statistics (admin/editor only)
    */
   async getSubmissionStatistics(): Promise<{ statistics: SubmissionStatistics }> {
-    const response = await fetch(`${API_BASE_URL}/submissions/statistics`, {
-      method: 'GET',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-    });
-
-    return handleResponse(response);
+    return apiRequest(`${API_BASE_URL}/submissions/statistics`, { method: 'GET' });
   },
 
   /**
    * Search submissions (admin/editor only)
    */
   async searchSubmissions(query: string): Promise<{ submissions: Submission[] }> {
-    const response = await fetch(`${API_BASE_URL}/submissions/search?q=${encodeURIComponent(query)}`, {
-      method: 'GET',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-    });
-
-    return handleResponse(response);
+    return apiRequest(`${API_BASE_URL}/submissions/search?q=${encodeURIComponent(query)}`, { method: 'GET' });
   },
 
   /**
    * Get submissions pending review (admin/editor only)
    */
   async getSubmissionsPendingReview(): Promise<{ submissions: SubmissionWithAuthor[] }> {
-    const response = await fetch(`${API_BASE_URL}/submissions/pending-review`, {
-      method: 'GET',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-    });
-
-    return handleResponse(response);
+    return apiRequest(`${API_BASE_URL}/submissions/pending-review`, { method: 'GET' });
   },
 
   /**
@@ -194,14 +162,6 @@ export const submissionApi = {
    * Delete submission (admin only)
    */
   async deleteSubmission(id: string): Promise<{ message: string }> {
-    const response = await fetch(`${API_BASE_URL}/submissions/${id}`, {
-      method: 'DELETE',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-    });
-
-    return handleResponse(response);
+    return apiRequest(`${API_BASE_URL}/submissions/${id}`, { method: 'DELETE' });
   },
 };
