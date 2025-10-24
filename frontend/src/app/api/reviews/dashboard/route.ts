@@ -161,9 +161,11 @@ export async function GET(request: NextRequest) {
               status: submission.review_status || 'pending',
               submitted_at: submission.submission_date || submission.created_at,
               due_date: submission.review_due_date || new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-              author_first_name: submission.author_first_name || 'Unknown',
-              author_last_name: submission.author_last_name || 'Author',
-              author_affiliation: submission.author_affiliation || 'Unknown Institution',
+              // record author_id (if provided) and defer filling author_* fields to an enrichment step
+              author_id: submission.author_id || null,
+              author_first_name: submission.author_first_name || null,
+              author_last_name: submission.author_last_name || null,
+              author_affiliation: submission.author_affiliation || null,
               keywords: Array.isArray(submission.keywords) ? submission.keywords : [],
               priority: 'medium',
               manuscript_type: submission.submission_type || 'research_article',
@@ -192,9 +194,10 @@ export async function GET(request: NextRequest) {
                 status: submission.review_status || 'pending',
                 submitted_at: submission.submission_date || submission.created_at,
                 due_date: submission.review_due_date || new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-                author_first_name: submission.author_first_name || 'Unknown',
-                author_last_name: submission.author_last_name || 'Author',
-                author_affiliation: submission.author_affiliation || 'Unknown Institution',
+                author_id: submission.author_id || null,
+                author_first_name: submission.author_first_name || null,
+                author_last_name: submission.author_last_name || null,
+                author_affiliation: submission.author_affiliation || null,
                 keywords: Array.isArray(submission.keywords) ? submission.keywords : [],
                 priority: 'medium',
                 manuscript_type: submission.submission_type || 'research_article',
@@ -211,6 +214,32 @@ export async function GET(request: NextRequest) {
       console.log('Real data fetch failed, using mock data:', realDataError);
     }
     
+    // Enrich any collected pendingReviews with author profiles (by author_id) so we don't rely on denormalized fields
+    try {
+      const authorIds = Array.from(new Set(pendingReviews.map((p: any) => p.author_id).filter(Boolean)));
+      if (authorIds.length > 0) {
+        console.log('Enriching pending reviews with author profiles for ids:', authorIds);
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, first_name, last_name, affiliation')
+          .in('id', authorIds);
+
+        if (!usersError && usersData) {
+          const usersById = (usersData || []).reduce((acc: any, u: any) => { acc[u.id] = u; return acc; }, {} as Record<string, any>);
+          pendingReviews = (pendingReviews || []).map((p: any) => ({
+            ...p,
+            author_first_name: p.author_first_name || usersById[p.author_id]?.first_name || 'Unknown',
+            author_last_name: p.author_last_name || usersById[p.author_id]?.last_name || 'Author',
+            author_affiliation: p.author_affiliation || usersById[p.author_id]?.affiliation || 'Unknown Institution'
+          }));
+        } else {
+          console.warn('Could not enrich pending reviews with users:', usersError);
+        }
+      }
+    } catch (enrichErr) {
+      console.warn('Error enriching pending reviews with author profiles:', enrichErr);
+    }
+
     // If no real data, use enhanced mock data that looks more realistic
     if (!hasRealData || pendingReviews.length === 0) {
       console.log('Using mock data for reviewer dashboard');

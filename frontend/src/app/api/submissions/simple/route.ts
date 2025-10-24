@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
     if (user) console.log('User email:', user.email);
     
     // Get submissions directly (skip role check for testing)
+    // Select safe fields and author_id (author profile lives in `users` table)
     const { data: submissions, error: submissionsError } = await supabase
       .from('submissions')
       .select(`
@@ -66,9 +67,7 @@ export async function GET(request: NextRequest) {
         title,
         abstract,
         status,
-        author_first_name,
-        author_last_name,
-        author_email,
+        author_id,
         submission_date,
         created_at
       `)
@@ -88,10 +87,36 @@ export async function GET(request: NextRequest) {
     }
     
     console.log('Found submissions:', submissions?.length || 0);
-    
+
+    // Enrich submissions with author profiles fetched from users table
+    let enriched = submissions || [];
+    try {
+      const authorIds = Array.from(new Set((enriched || []).map((s: any) => s.author_id).filter(Boolean)));
+      if (authorIds.length > 0) {
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, first_name, last_name, email, affiliation')
+          .in('id', authorIds);
+
+        if (usersError) {
+          console.warn('Failed to fetch author profiles for simple submissions API:', usersError);
+        } else {
+          const usersById = (usersData || []).reduce((acc: any, u: any) => { acc[u.id] = u; return acc; }, {} as Record<string, any>);
+          enriched = (enriched || []).map((sub: any) => ({
+            ...sub,
+            author_first_name: usersById[sub.author_id]?.first_name || null,
+            author_last_name: usersById[sub.author_id]?.last_name || null,
+            author_email: usersById[sub.author_id]?.email || null,
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn('Error enriching simple submissions with author profiles:', e);
+    }
+
     return NextResponse.json({
-      submissions: submissions || [],
-      count: submissions?.length || 0,
+      submissions: enriched,
+      count: enriched?.length || 0,
       authMethod,
       user: user ? { email: user.email, id: user.id } : null
     });
