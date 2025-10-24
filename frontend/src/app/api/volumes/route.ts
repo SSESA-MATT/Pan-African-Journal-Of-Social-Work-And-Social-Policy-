@@ -30,8 +30,7 @@ export async function GET(request: NextRequest) {
         issues (
           id,
           issue_number,
-          title,
-          publication_date
+          title
         )
       `)
       .order('year', { ascending: false })

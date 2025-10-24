@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
       .select(`
         id,
         status,
-        review_deadline,
         assigned_date,
         reviewer_id,
         reviewer_email,
