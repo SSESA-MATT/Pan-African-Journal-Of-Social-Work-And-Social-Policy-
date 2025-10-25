@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { submissionApi } from '@/lib/submissionApi';
 import { userApi } from '@/lib/userApi';
+import { reviewApi } from '@/lib/reviewApi';
 import { User } from '@/types/auth';
 import { Submission } from '@/types/submission';
 
@@ -19,6 +20,8 @@ export const ReviewerAssignmentInterface: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assignmentLoading, setAssignmentLoading] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -50,16 +53,20 @@ export const ReviewerAssignmentInterface: React.FC = () => {
   const handleAssignReviewer = async (submissionId: string, reviewerId: string) => {
     try {
       setAssignmentLoading(submissionId);
-      // This would be implemented in the backend API
-      // await submissionApi.assignReviewer(submissionId, reviewerId);
-      
-      // For now, we'll simulate the assignment
-      console.log(`Assigning reviewer ${reviewerId} to submission ${submissionId}`);
-      
-      // Refresh data after assignment
-      await loadData();
+      // Call backend API to assign the reviewer
+      await reviewApi.assignReviewer({ submissionId, reviewerId });
+
+      // Optimistically remove this submission from the list so it can't be re-assigned
+      setSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
+
+      // Show success toast
+      setSuccessMessage('Reviewer assigned successfully');
+      window.setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to assign reviewer');
+      const msg = err instanceof Error ? err.message : 'Failed to assign reviewer';
+      setError(msg);
+      setErrorMessage(msg);
+      window.setTimeout(() => setErrorMessage(null), 6000);
     } finally {
       setAssignmentLoading(null);
     }
@@ -262,6 +269,22 @@ export const ReviewerAssignmentInterface: React.FC = () => {
           </div>
         )}
       </div>
+      {/* Toasts */}
+      {successMessage && (
+        <div className="fixed right-4 bottom-4 z-50">
+          <div className="bg-green-600 text-white px-4 py-2 rounded shadow-lg">
+            {successMessage}
+          </div>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="fixed right-4 bottom-4 z-50">
+          <div className="bg-red-600 text-white px-4 py-2 rounded shadow-lg">
+            {errorMessage}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

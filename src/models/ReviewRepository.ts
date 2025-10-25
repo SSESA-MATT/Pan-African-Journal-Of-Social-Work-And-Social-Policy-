@@ -155,33 +155,55 @@ export class ReviewRepository extends BaseRepository<Review> {
    * Get pending reviews for a reviewer (submissions assigned but not reviewed)
    */
   async findPendingForReviewer(reviewerId: string): Promise<any[]> {
-    // First get all submissions that need review
-    const { data: submissions, error: submissionsError } = await this.supabase
-      .from('submissions')
+    // Only return submissions that have been explicitly assigned to this reviewer.
+    // Assignments are represented by rows in the `reviews` table with reviewer_id
+    // set and a status of 'pending'. Join those review rows to the submissions
+    // table to return submission details and author info in a shape convenient
+    // for the frontend.
+    const { data, error } = await this.supabase
+      .from('reviews')
       .select(`
-        *,
-        users:author_id (
-          first_name,
-          last_name
+        id,
+        assigned_at,
+        status,
+        submissions:submission_id (
+          id,
+          title,
+          abstract,
+          status,
+          submitted_at,
+          users:author_id (
+            first_name,
+            last_name
+          )
         )
       `)
-      .in('status', ['submitted', 'under_review'])
-      .order('submitted_at', { ascending: true });
+      .eq('reviewer_id', reviewerId)
+      .eq('status', 'pending')
+      .order('assigned_at', { ascending: true });
 
-    if (submissionsError) {
-      throw submissionsError;
+    if (error) {
+      throw error;
     }
 
-    // Filter out submissions already reviewed by this reviewer
-    const pendingSubmissions = [];
-    for (const submission of submissions || []) {
-      const hasReviewed = await this.hasReviewerReviewed(submission.id, reviewerId);
-      if (!hasReviewed) {
-        pendingSubmissions.push(submission);
-      }
-    }
+    // Map the joined structure to the previous submission-like shape the
+    // rest of the codebase expects (id, title, abstract, author_first_name...).
+    const pending = (data || []).map((row: any) => {
+      const submission = row.submissions || {};
+      return {
+        id: submission.id || null,
+        title: submission.title || null,
+        abstract: submission.abstract || null,
+        status: submission.status || null,
+        submitted_at: submission.submitted_at || null,
+        author_first_name: submission.users?.first_name || null,
+        author_last_name: submission.users?.last_name || null,
+        assigned_at: row.assigned_at || null,
+        review_id: row.id || null,
+      };
+    });
 
-    return pendingSubmissions;
+    return pending;
   }
 
   /**
