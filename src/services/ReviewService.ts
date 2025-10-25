@@ -180,10 +180,23 @@ export class ReviewService {
       throw new Error('Reviewer is already assigned to this submission');
     }
 
-    // For now, we'll create a placeholder review entry to track assignment
-    // In a more complex system, you might have a separate reviewer_assignments table
-    // This is a simplified approach that works with the current schema
-    
+    // Create a review record to represent the assignment. This makes assigned
+    // submissions discoverable by reviewer queries that look at the `reviews` table.
+    // We avoid storing denormalized reviewer_* fields here; the profile will be
+    // loaded from `users` when needed.
+    const now = new Date().toISOString();
+
+    const reviewToCreate = {
+      submission_id: submissionId,
+      reviewer_id: reviewerId,
+      status: 'pending',
+      assigned_at: now,
+      created_at: now,
+      updated_at: now
+    } as any;
+
+    const createdReview = await this.reviewRepository.create(reviewToCreate as any);
+
     // Update submission status to under_review if needed
     if (submission.status === 'submitted') {
       await this.submissionRepository.update(submissionId, {
@@ -192,10 +205,11 @@ export class ReviewService {
       });
     }
 
-    // Return submission and reviewer information for email notifications
+    // Return submission, reviewer and the created review for downstream usage
     return {
       submission,
-      reviewer
+      reviewer,
+      review: createdReview
     };
   }
 
