@@ -22,10 +22,9 @@ export async function GET(request: NextRequest) {
       .select(`
         id,
         status,
-        reviewer_id,
-        reviewer_email,
-        reviewer_first_name,
-        reviewer_last_name,
+  reviewer_id,
+  reviewer_first_name,
+  reviewer_last_name,
         submissions (
           id,
           title,
