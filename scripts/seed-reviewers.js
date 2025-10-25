@@ -142,22 +142,93 @@ async function upsertProfiles() {
 
 async function upsertSubmissions() {
   console.log('Upserting submissions...');
-  const { data, error } = await supabase.from('submissions').upsert(submissions, { onConflict: 'id' });
-  if (error) {
-    console.error('Error upserting submissions:', error.message || error);
-    throw error;
+  // First try a simple upsert (works when submissions.id is UUID-able)
+  try {
+    const { data, error } = await supabase.from('submissions').upsert(submissions, { onConflict: 'id' });
+    if (error) throw error;
+    console.log('Submissions upserted (fast path):', (data || []).length);
+    // build id map from provided ids -> resulting ids (they should match)
+    const idMap = {};
+    (data || []).forEach((r) => {
+      if (r && r.id) idMap[String(r.id)] = r.id;
+    });
+    return idMap;
+  } catch (err) {
+    const msg = (err && err.message) || String(err || '');
+    // If the DB expects integer ids this will commonly fail with invalid input syntax for type integer
+    if (!/invalid input syntax for type integer/i.test(msg)) {
+      console.error('Error upserting submissions (unexpected):', msg);
+      throw err;
+    }
+
+    console.warn('Submissions upsert failed due to id type mismatch. Falling back to find-or-insert strategy (DB likely uses integer PKs).');
+
+    // Fallback: for each submission, try to find an existing row by a unique-ish key (title + author_id), otherwise insert without id
+    const idMap = {};
+    for (const s of submissions) {
+      try {
+        // Try to find existing by title + author_id
+        const { data: found, error: findErr } = await supabase
+          .from('submissions')
+          .select('id')
+          .eq('title', s.title)
+          .eq('author_id', s.author_id)
+          .limit(1);
+        if (findErr) throw findErr;
+        if (Array.isArray(found) && found.length > 0) {
+          idMap[String(s.id)] = found[0].id;
+          console.log('Found existing submission for', s.title, '->', found[0].id);
+          continue;
+        }
+
+        // Insert without id so DB assigns integer PK
+        const insertObj = Object.assign({}, s);
+        delete insertObj.id;
+        const { data: inserted, error: insertErr } = await supabase
+          .from('submissions')
+          .insert(insertObj)
+          .select('id')
+          .limit(1);
+        if (insertErr) throw insertErr;
+        if (Array.isArray(inserted) && inserted.length > 0) {
+          idMap[String(s.id)] = inserted[0].id;
+          console.log('Inserted submission (fallback) for', s.title, '->', inserted[0].id);
+        } else if (inserted && inserted.id) {
+          idMap[String(s.id)] = inserted.id;
+          console.log('Inserted submission (fallback) for', s.title, '->', inserted.id);
+        } else {
+          throw new Error('Unexpected insert response for submission ' + s.title);
+        }
+      } catch (e) {
+        console.error('Error handling submission', s.title, e.message || e);
+        throw e;
+      }
+    }
+
+    console.log('Submissions processed (fallback).');
+    return idMap;
   }
-  console.log('Submissions upserted:', (data || []).length);
 }
 
 async function upsertReviews() {
   console.log('Upserting reviews...');
-  const { data, error } = await supabase.from('reviews').upsert(reviews, { onConflict: 'id' });
-  if (error) {
-    console.error('Error upserting reviews:', error.message || error);
-    throw error;
+  // We will not assume submission ids in `reviews` match the DB PK type.
+  // Build the final reviews array by mapping submission ids through the idMap (if provided).
+  // If upsertSubmissions returned an idMap, use it. Otherwise, try direct upsert.
+  try {
+    const { data, error } = await supabase.from('reviews').upsert(reviews, { onConflict: 'id' });
+    if (error) throw error;
+    console.log('Reviews upserted (fast path):', (data || []).length);
+    return;
+  } catch (err) {
+    const msg = (err && err.message) || String(err || '');
+    // If upsert failed likely due to submission id type mismatch, we will rebuild reviews using the idMap
+    if (!/invalid input syntax for type integer/i.test(msg)) {
+      console.error('Error upserting reviews (unexpected):', msg);
+      throw err;
+    }
+    throw err; // fallback handled in run()
   }
-  console.log('Reviews upserted:', (data || []).length);
 }
 
 async function run() {
@@ -167,8 +238,30 @@ async function run() {
     await new Promise((r) => setTimeout(r, 1000));
 
     await upsertProfiles();
-    await upsertSubmissions();
-    await upsertReviews();
+    // Upsert submissions. This function now returns an idMap when it had to
+    // translate seeded UUIDs to DB-generated integer ids.
+    const idMap = await upsertSubmissions();
+
+    // If idMap exists and contains mappings, rebuild reviews to use the mapped submission ids
+    if (idMap && Object.keys(idMap).length > 0) {
+      const resolvedReviews = reviews.map((r) => {
+        const mapped = Object.prototype.hasOwnProperty.call(idMap, String(r.submission_id))
+          ? idMap[String(r.submission_id)]
+          : r.submission_id;
+        return Object.assign({}, r, { submission_id: mapped });
+      });
+
+      // Upsert using the resolved reviews array
+      const { data, error } = await supabase.from('reviews').upsert(resolvedReviews, { onConflict: 'id' });
+      if (error) {
+        console.error('Error upserting reviews (fallback):', error.message || error);
+        throw error;
+      }
+      console.log('Reviews upserted (fallback path):', (data || []).length);
+    } else {
+      // Fast path: reviews were upserted successfully in place
+      await upsertReviews();
+    }
 
     console.log('\nSeed completed. Verify with queries in Supabase SQL editor:');
     console.log("SELECT id,email FROM auth.users WHERE email LIKE '%@test.com';");
