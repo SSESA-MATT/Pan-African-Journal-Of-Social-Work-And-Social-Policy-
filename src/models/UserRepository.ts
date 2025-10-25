@@ -123,6 +123,24 @@ export class UserRepository extends BaseRepository<User> {
   }
 
   /**
+   * Find multiple users by array of IDs
+   */
+  async findByIds(ids: string[]): Promise<User[]> {
+    if (!ids || ids.length === 0) return [];
+
+    const { data, error } = await this.supabase
+      .from('users')
+      .select('*')
+      .in('id', ids);
+
+    if (error) {
+      throw error;
+    }
+
+    return data || [];
+  }
+
+  /**
    * Create user with specific ID (for Supabase Auth integration)
    */
   async createWithId(userData: {

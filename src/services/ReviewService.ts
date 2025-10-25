@@ -75,7 +75,27 @@ export class ReviewService {
    * Get reviews for a specific submission
    */
   async getReviewsForSubmission(submissionId: string): Promise<Review[]> {
-    return this.reviewRepository.findBySubmission(submissionId);
+    // Fetch raw reviews
+    const reviews = await this.reviewRepository.findBySubmission(submissionId);
+
+    if (!reviews || reviews.length === 0) return reviews;
+
+    // Collect reviewer IDs and fetch reviewer profiles in batch to avoid per-row queries
+    const reviewerIds = Array.from(new Set(reviews.map((r: any) => r.reviewer_id).filter(Boolean)));
+    const reviewersById: Record<string, any> = {};
+
+    if (reviewerIds.length > 0) {
+      const reviewers = await this.userRepository.findByIds(reviewerIds);
+      (reviewers || []).forEach((u: any) => { reviewersById[u.id] = u; });
+    }
+
+    // Attach reviewer profile fields to each review for frontend convenience
+    return (reviews || []).map((r: any) => ({
+      ...r,
+      reviewer_first_name: reviewersById[r.reviewer_id]?.first_name || null,
+      reviewer_last_name: reviewersById[r.reviewer_id]?.last_name || null,
+      reviewer_email: reviewersById[r.reviewer_id]?.email || null,
+    }));
   }
 
   /**
