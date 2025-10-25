@@ -23,8 +23,6 @@ export async function GET(request: NextRequest) {
         id,
         status,
   reviewer_id,
-  reviewer_first_name,
-  reviewer_last_name,
         submissions (
           id,
           title,
