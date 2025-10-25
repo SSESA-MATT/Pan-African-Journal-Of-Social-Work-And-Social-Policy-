@@ -212,22 +212,17 @@ async function upsertSubmissions() {
 
 async function upsertReviews() {
   console.log('Upserting reviews...');
-  // We will not assume submission ids in `reviews` match the DB PK type.
-  // Build the final reviews array by mapping submission ids through the idMap (if provided).
-  // If upsertSubmissions returned an idMap, use it. Otherwise, try direct upsert.
+  // Simple fast-path upsert. If the DB rejects the seeded review ids (e.g. reviews.id is integer),
+  // higher-level code should call the fallback flow that inserts per-review without an explicit id.
   try {
     const { data, error } = await supabase.from('reviews').upsert(reviews, { onConflict: 'id' });
     if (error) throw error;
     console.log('Reviews upserted (fast path):', (data || []).length);
-    return;
+    return { ok: true };
   } catch (err) {
     const msg = (err && err.message) || String(err || '');
-    // If upsert failed likely due to submission id type mismatch, we will rebuild reviews using the idMap
-    if (!/invalid input syntax for type integer/i.test(msg)) {
-      console.error('Error upserting reviews (unexpected):', msg);
-      throw err;
-    }
-    throw err; // fallback handled in run()
+    console.warn('Fast-path reviews upsert failed:', msg);
+    return { ok: false, error: err };
   }
 }
 
@@ -251,16 +246,96 @@ async function run() {
         return Object.assign({}, r, { submission_id: mapped });
       });
 
-      // Upsert using the resolved reviews array
-      const { data, error } = await supabase.from('reviews').upsert(resolvedReviews, { onConflict: 'id' });
-      if (error) {
-        console.error('Error upserting reviews (fallback):', error.message || error);
-        throw error;
+      // Try fast upsert for resolved reviews first
+      try {
+        const { data, error } = await supabase.from('reviews').upsert(resolvedReviews, { onConflict: 'id' });
+        if (error) throw error;
+        console.log('Reviews upserted (resolved fast path):', (data || []).length);
+      } catch (err) {
+        const msg = (err && err.message) || String(err || '');
+        console.warn('Resolved reviews upsert failed (likely id type mismatch). Falling back to per-review find-or-insert.');
+
+        // Fallback: per-review find-or-insert using (submission_id + reviewer_id) as unique key
+        for (const r of resolvedReviews) {
+          try {
+            // try to find existing by submission_id + reviewer_id
+            const { data: found, error: findErr } = await supabase
+              .from('reviews')
+              .select('id')
+              .eq('submission_id', r.submission_id)
+              .eq('reviewer_id', r.reviewer_id)
+              .limit(1);
+            if (findErr) throw findErr;
+            if (Array.isArray(found) && found.length > 0) {
+              console.log('Found existing review for submission', r.submission_id, 'reviewer', r.reviewer_id, '->', found[0].id);
+              continue;
+            }
+
+            // Insert without id so DB assigns PK
+            const insertObj = Object.assign({}, r);
+            delete insertObj.id;
+            const { data: inserted, error: insertErr } = await supabase
+              .from('reviews')
+              .insert(insertObj)
+              .select('id')
+              .limit(1);
+            if (insertErr) throw insertErr;
+            if (Array.isArray(inserted) && inserted.length > 0) {
+              console.log('Inserted review (fallback) for submission', r.submission_id, '->', inserted[0].id);
+            } else if (inserted && inserted.id) {
+              console.log('Inserted review (fallback) for submission', r.submission_id, '->', inserted.id);
+            } else {
+              throw new Error('Unexpected insert response for review (submission ' + r.submission_id + ')');
+            }
+          } catch (e) {
+            console.error('Error handling review for submission', r.submission_id, e.message || e);
+            throw e;
+          }
+        }
+        console.log('Reviews processed (fallback).');
       }
-      console.log('Reviews upserted (fallback path):', (data || []).length);
     } else {
-      // Fast path: reviews were upserted successfully in place
-      await upsertReviews();
+      // Fast path: try to upsert reviews (they may or may not use seeded ids). Use helper which returns status.
+      const result = await upsertReviews();
+      if (!result.ok) {
+        // Fast upsert failed (likely id type mismatch). Perform per-review find-or-insert for the original reviews array.
+        console.warn('Reviews fast upsert failed, falling back to per-review insert for original reviews.');
+        for (const r of reviews) {
+          try {
+            const { data: found, error: findErr } = await supabase
+              .from('reviews')
+              .select('id')
+              .eq('submission_id', r.submission_id)
+              .eq('reviewer_id', r.reviewer_id)
+              .limit(1);
+            if (findErr) throw findErr;
+            if (Array.isArray(found) && found.length > 0) {
+              console.log('Found existing review for submission', r.submission_id, 'reviewer', r.reviewer_id, '->', found[0].id);
+              continue;
+            }
+
+            const insertObj = Object.assign({}, r);
+            delete insertObj.id;
+            const { data: inserted, error: insertErr } = await supabase
+              .from('reviews')
+              .insert(insertObj)
+              .select('id')
+              .limit(1);
+            if (insertErr) throw insertErr;
+            if (Array.isArray(inserted) && inserted.length > 0) {
+              console.log('Inserted review (fallback) for submission', r.submission_id, '->', inserted[0].id);
+            } else if (inserted && inserted.id) {
+              console.log('Inserted review (fallback) for submission', r.submission_id, '->', inserted.id);
+            } else {
+              throw new Error('Unexpected insert response for review (submission ' + r.submission_id + ')');
+            }
+          } catch (e) {
+            console.error('Error handling review for submission', r.submission_id, e.message || e);
+            throw e;
+          }
+        }
+        console.log('Reviews processed (fallback).');
+      }
     }
 
     console.log('\nSeed completed. Verify with queries in Supabase SQL editor:');
