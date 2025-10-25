@@ -78,7 +78,10 @@ class UserApiService {
   }
 
   async getUsersByRole(role: User['role']): Promise<ApiResponse<User[]>> {
-    const response = await fetch(`${API_BASE_URL}/users/role/${role}`, {
+    // The Next.js app provides a dedicated route for reviewers at /api/users/reviewers
+    // while other role endpoints may follow the /api/users/role/:role pattern.
+    const endpoint = role === 'reviewer' ? `${API_BASE_URL}/users/reviewers` : `${API_BASE_URL}/users/role/${role}`;
+    const response = await fetch(endpoint, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
