@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
       .select(`
         id,
         status,
-        assigned_date,
         reviewer_id,
         reviewer_email,
         reviewer_first_name,
@@ -36,7 +35,8 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('status', 'pending')
-      .order('assigned_date', { ascending: false });
+      // `assigned_date` isn't present in the production schema; order by a safe field instead
+      .order('id', { ascending: false });
 
     if (reviewsError) {
       console.error('Error fetching pending reviews:', reviewsError);
