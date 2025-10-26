@@ -132,12 +132,65 @@ async function createAuthUsers() {
 
 async function upsertProfiles() {
   console.log('Upserting profile rows into public.users...');
-  const { data, error } = await supabase.from('users').upsert(profiles, { onConflict: 'id' });
-  if (error) {
-    console.error('Error upserting profiles:', error.message || error);
-    throw error;
+  // Ensure the table exists then upsert and request returned rows with .select()
+  try {
+    const { data, error } = await supabase.from('users').upsert(profiles, { onConflict: 'id' }).select();
+    if (error) throw error;
+    console.log('Profiles upserted into public.users:', (data || []).length);
+  } catch (err) {
+    console.warn('Could not upsert into public.users:', (err && err.message) || err);
+    // If the project uses `profiles` instead of `users`, try that table as a fallback
+    try {
+      const { data: data2, error: err2 } = await supabase.from('profiles').upsert(profiles, { onConflict: 'id' }).select();
+      if (err2) throw err2;
+      console.log('Profiles upserted into public.profiles:', (data2 || []).length);
+    } catch (err3) {
+      // Table may not exist or another issue; log and continue
+      console.warn('Could not upsert into public.profiles either:', (err3 && err3.message) || err3);
+    }
   }
-  console.log('Profiles upserted:', (data || []).length);
+}
+
+async function tableExists(tableName) {
+  const { data, error } = await supabase
+    .from('information_schema.tables')
+    .select('table_name')
+    .eq('table_schema', 'public')
+    .eq('table_name', tableName)
+    .limit(1);
+  if (error) return false;
+  return Array.isArray(data) && data.length > 0;
+}
+
+async function postSeedVerify(insertedSubmissionIds = []) {
+  console.log('\nPost-seed verification:');
+  try {
+    const { data: authUsers } = await supabase.rpc('', {}); // noop placeholder to keep pattern
+  } catch (e) {
+    // ignore
+  }
+
+  // Counts
+  try {
+    const { data: subCount } = await supabase.from('submissions').select('id', { count: 'exact' });
+    const { data: revCount } = await supabase.from('reviews').select('id', { count: 'exact' });
+    console.log('submissions count:', Array.isArray(subCount) ? subCount.length : 0);
+    console.log('reviews count   :', Array.isArray(revCount) ? revCount.length : 0);
+  } catch (e) {
+    console.warn('Could not fetch counts:', e.message || e);
+  }
+
+  // Sample rows we just inserted (if we have IDs)
+  if (Array.isArray(insertedSubmissionIds) && insertedSubmissionIds.length > 0) {
+    try {
+      const { data: subs } = await supabase.from('submissions').select('id,title,author_id').in('id', insertedSubmissionIds);
+      console.log('Inserted submissions sample:', subs || []);
+      const { data: revs } = await supabase.from('reviews').select('id,submission_id,reviewer_id,status').in('submission_id', insertedSubmissionIds);
+      console.log('Inserted reviews sample:', revs || []);
+    } catch (e) {
+      console.warn('Could not fetch sample rows:', e.message || e);
+    }
+  }
 }
 
 async function upsertSubmissions() {
