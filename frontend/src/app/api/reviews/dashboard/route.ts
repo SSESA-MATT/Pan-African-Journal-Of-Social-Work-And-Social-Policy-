@@ -87,104 +87,98 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('User has reviewer permissions, attempting to fetch real submissions...');
-    
-    // Try to fetch real submissions - prioritize showing actual submissions over mock data
+
+    // Try to fetch real submissions - prefer assigned reviews for this reviewer first
     let pendingReviews = [];
     let hasRealData = false;
-    
+
     try {
-      console.log('Trying direct query first to get all submissions...');
-      
-      // Start with direct query to get all real submissions
-      const { data: directSubmissions, error: directError } = await supabase
-        .from('submissions')
-        .select(`
-          id,
-          title,
-          abstract,
-          keywords,
-          status,
-          submission_date,
-          created_at,
-          submission_type,
-          users!submissions_author_id_fkey (
-            first_name,
-            last_name,
-            affiliation
-          )
-        `)
-        .eq('status', 'submitted')
-        .order('submission_date', { ascending: false })
-        .limit(10);
-      
-      if (!directError && directSubmissions && directSubmissions.length > 0) {
-        console.log(`Found ${directSubmissions.length} real submissions using direct query`);
+      console.log('Trying RPC get_submissions_for_reviewer first (assigned-only)...');
+      const { data: assignedSubmissions, error: assignedError } = await supabase
+        .rpc('get_submissions_for_reviewer', { reviewer_user_id: userId });
+
+      if (!assignedError && assignedSubmissions && assignedSubmissions.length > 0) {
+        console.log(`Found ${assignedSubmissions.length} submissions assigned to reviewer ${userId} (RPC)`);
         hasRealData = true;
-        
-        // Process real submissions from direct query
-        for (const submission of directSubmissions) {
-          const author = submission.users as any;
+
+        for (const submission of assignedSubmissions) {
           pendingReviews.push({
             id: `real-${submission.id}`,
             submission_id: submission.id,
             title: submission.title || 'Untitled Manuscript',
             abstract: submission.abstract || 'No abstract available',
-            status: 'pending',
+            status: submission.review_status || 'pending',
             submitted_at: submission.submission_date || submission.created_at,
-            due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-            author_first_name: author?.first_name || 'Unknown',
-            author_last_name: author?.last_name || 'Author',
-            author_affiliation: author?.affiliation || 'Unknown Institution',
+            due_date: submission.review_due_date || new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+            author_id: submission.author_id || null,
+            author_first_name: submission.author_first_name || null,
+            author_last_name: submission.author_last_name || null,
+            author_affiliation: submission.author_affiliation || null,
             keywords: Array.isArray(submission.keywords) ? submission.keywords : [],
             priority: 'medium',
-            manuscript_type: submission.submission_type || 'research_article'
+            manuscript_type: submission.submission_type || 'research_article',
+            review_id: submission.review_id,
+            assigned_at: submission.review_assigned_at
           });
         }
       } else {
-        console.log('Direct query failed, trying RPC functions...', directError);
-        
-        // Fallback 1: Try to get submissions assigned to this specific reviewer
-        const { data: assignedSubmissions, error: assignedError } = await supabase
-          .rpc('get_submissions_for_reviewer', { reviewer_user_id: userId });
-        
-        if (!assignedError && assignedSubmissions && assignedSubmissions.length > 0) {
-          console.log(`Found ${assignedSubmissions.length} submissions assigned to reviewer ${userId}`);
+        console.log('No assigned submissions via RPC (or RPC failed), trying direct query next...', assignedError);
+
+        // Try direct query to get visible submissions for this user (may be limited by RLS)
+        const { data: directSubmissions, error: directError } = await supabase
+          .from('submissions')
+          .select(`
+            id,
+            title,
+            abstract,
+            keywords,
+            status,
+            submission_date,
+            created_at,
+            submission_type,
+            users!submissions_author_id_fkey (
+              first_name,
+              last_name,
+              affiliation
+            )
+          `)
+          .eq('status', 'submitted')
+          .order('submission_date', { ascending: false })
+          .limit(10);
+
+        if (!directError && directSubmissions && directSubmissions.length > 0) {
+          console.log(`Found ${directSubmissions.length} real submissions using direct query`);
           hasRealData = true;
-          
-          // Process assigned submissions
-          for (const submission of assignedSubmissions) {
+
+          for (const submission of directSubmissions) {
+            const author = submission.users as any;
             pendingReviews.push({
               id: `real-${submission.id}`,
               submission_id: submission.id,
               title: submission.title || 'Untitled Manuscript',
               abstract: submission.abstract || 'No abstract available',
-              status: submission.review_status || 'pending',
+              status: 'pending',
               submitted_at: submission.submission_date || submission.created_at,
-              due_date: submission.review_due_date || new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-              // record author_id (if provided) and defer filling author_* fields to an enrichment step
-              author_id: submission.author_id || null,
-              author_first_name: submission.author_first_name || null,
-              author_last_name: submission.author_last_name || null,
-              author_affiliation: submission.author_affiliation || null,
+              due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+              author_first_name: author?.first_name || 'Unknown',
+              author_last_name: author?.last_name || 'Author',
+              author_affiliation: author?.affiliation || 'Unknown Institution',
               keywords: Array.isArray(submission.keywords) ? submission.keywords : [],
               priority: 'medium',
-              manuscript_type: submission.submission_type || 'research_article',
-              review_id: submission.review_id,
-              assigned_at: submission.review_assigned_at
+              manuscript_type: submission.submission_type || 'research_article'
             });
           }
         } else {
-          console.log('No assigned submissions, trying general RPC function...');
-          
+          console.log('Direct query returned nothing or errored, trying general RPC function...', directError);
+
           // Fallback 2: Try to get submissions using the general RPC function
           const { data: submissions, error: submissionsError } = await supabase
             .rpc('get_submissions_for_review');
-          
+
           if (!submissionsError && submissions && submissions.length > 0) {
             console.log(`Found ${submissions.length} real submissions using general RPC function`);
             hasRealData = true;
-            
-            // Process real submissions from RPC
+
             for (const submission of submissions.slice(0, 10)) {
               pendingReviews.push({
                 id: `real-${submission.id}`,
