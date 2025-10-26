@@ -36,7 +36,7 @@ interface ApiResponse {
   count?: number;
 }
 
-export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse | SubmissionData[]>> {
+export async function GET(request: NextRequest): Promise<NextResponse<any>> {
   try {
     const supabase = createRouteHandlerClient({ cookies });
     
@@ -173,9 +173,10 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
       console.warn('Error enriching submissions with author profiles:', e);
     }
 
-    console.log('=== SUBMISSIONS ALL API END ===');
+  console.log('=== SUBMISSIONS ALL API END ===');
 
-    return NextResponse.json(enriched || []);
+  // Return wrapped shape expected by the frontend client
+  return NextResponse.json({ submissions: enriched || [] });
 
   } catch (error: unknown) {
     console.error('Unexpected error in submissions API:', error);

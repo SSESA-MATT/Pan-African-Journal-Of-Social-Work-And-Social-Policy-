@@ -100,15 +100,15 @@ export async function GET(request: NextRequest) {
             author_affiliation: usersById[s.author_id]?.affiliation || null,
           }));
           console.log('Found submissions:', enriched.length || 0);
-          return NextResponse.json(enriched || []);
+          return NextResponse.json({ submissions: enriched || [] });
         }
       }
     } catch (e) {
       console.warn('Failed to enrich admin submissions with authors:', e);
     }
 
-    console.log('Found submissions:', submissions?.length || 0);
-    return NextResponse.json(submissions || []);
+  console.log('Found submissions:', submissions?.length || 0);
+  return NextResponse.json({ submissions: submissions || [] });
 
   } catch (error) {
     console.error('Admin submissions API error:', error);

@@ -77,7 +77,8 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json(manuscripts, { headers: corsHeaders() });
+  // Return the shape the frontend expects
+  return NextResponse.json({ submissions: manuscripts }, { headers: corsHeaders() });
 
   } catch (error) {
     console.error('GET admin manuscripts error:', error);

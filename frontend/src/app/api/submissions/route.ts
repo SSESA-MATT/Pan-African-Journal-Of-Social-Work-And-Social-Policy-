@@ -117,7 +117,8 @@ export async function GET(request: NextRequest) {
       assigned_reviewers: []
     }));
 
-    return NextResponse.json(manuscripts, { headers: corsHeaders() });
+  // Wrap the result to match frontend shape expected by submissionApi
+  return NextResponse.json({ submissions: manuscripts }, { headers: corsHeaders() });
 
   } catch (error: any) {
     console.error('GET submissions error:', error);
