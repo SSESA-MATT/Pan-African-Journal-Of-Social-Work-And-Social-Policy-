@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { reviewApi } from '../lib/reviewApi';
 import { ReviewerDashboardData, PendingReview, CompletedReview, RECOMMENDATION_LABELS, RECOMMENDATION_COLORS } from '../types/review';
 
@@ -9,6 +10,7 @@ export default function ReviewerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'pending' | 'completed'>('pending');
+  const router = useRouter();
 
   useEffect(() => {
     loadDashboardData();
@@ -187,8 +189,8 @@ export default function ReviewerDashboard() {
                     <div className="ml-4 flex-shrink-0">
                       <button
                         onClick={() => {
-                          // Navigate to review form
-                          window.location.href = `/reviewer/review/${submission.id}`;
+                          // Navigate to review form using Next router for correct basePath handling
+                          router.push(`/reviewer/review/${submission.id}`);
                         }}
                         className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
                       >
