@@ -246,41 +246,11 @@ export async function GET(request: NextRequest) {
       console.warn('Error enriching pending reviews with author profiles:', enrichErr);
     }
 
-    // If no real data, use enhanced mock data that looks more realistic
+    // If no real data, return an empty list. We intentionally removed the demo/mock
+    // fallback so reviewers always see only real database-backed submissions.
     if (!hasRealData || pendingReviews.length === 0) {
-      console.log('Using mock data for reviewer dashboard');
-      pendingReviews = [
-        {
-          id: 'mock-1',
-          submission_id: 'demo-submission-1',
-          title: 'Decolonizing Social Work Practice in African Communities',
-          abstract: 'This manuscript explores the critical need for decolonizing social work practice within African communities, examining how traditional Western social work models can be adapted to incorporate indigenous knowledge systems and culturally appropriate interventions.',
-          status: 'pending',
-          submitted_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          due_date: new Date(Date.now() + 18 * 24 * 60 * 60 * 1000).toISOString(),
-          author_first_name: 'Dr. Amara',
-          author_last_name: 'Kwame',
-          author_affiliation: 'University of Ghana, School of Social Work',
-          keywords: ['decolonization', 'social work', 'African communities', 'indigenous knowledge'],
-          priority: 'high',
-          manuscript_type: 'research_article'
-        },
-        {
-          id: 'mock-2', 
-          submission_id: 'demo-submission-2',
-          title: 'Community-Based Mental Health Interventions in Rural Uganda',
-          abstract: 'A comprehensive study examining the effectiveness of community-based mental health interventions in rural Ugandan communities, focusing on culturally adapted therapeutic approaches and community healing practices.',
-          status: 'pending',
-          submitted_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          due_date: new Date(Date.now() + 16 * 24 * 60 * 60 * 1000).toISOString(),
-          author_first_name: 'Sarah',
-          author_last_name: 'Nalubega',
-          author_affiliation: 'Makerere University, Department of Social Work',
-          keywords: ['mental health', 'rural communities', 'Uganda', 'community interventions'],
-          priority: 'medium',
-          manuscript_type: 'research_article'
-        }
-      ];
+      console.log('No real submissions found for reviewer; returning empty pendingReviews (mock data disabled)');
+      pendingReviews = [];
     }
 
     const dashboardData = {
@@ -296,8 +266,8 @@ export async function GET(request: NextRequest) {
         expertise_areas: ['community social work', 'decolonial practice', 'African studies'],
         performance_rating: 4.2
       },
-      dataSource: hasRealData ? 'database' : 'mock',
-      message: hasRealData ? `Showing ${pendingReviews.length} real submissions available for review` : 'Showing demo data - real submissions will appear when authors submit manuscripts',
+  dataSource: hasRealData ? 'database' : 'none',
+  message: hasRealData ? `Showing ${pendingReviews.length} real submissions available for review` : 'No assigned submissions available',
       debugInfo: debug ? debugInfo : undefined
     };
 
