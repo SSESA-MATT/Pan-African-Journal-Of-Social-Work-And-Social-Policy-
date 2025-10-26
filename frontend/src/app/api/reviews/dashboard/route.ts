@@ -91,11 +91,15 @@ export async function GET(request: NextRequest) {
     // Try to fetch real submissions - prefer assigned reviews for this reviewer first
     let pendingReviews = [];
     let hasRealData = false;
+    const debug = request.nextUrl?.searchParams?.get('debug') === 'true';
+    const debugInfo: Record<string, any> = {};
 
     try {
       console.log('Trying RPC get_submissions_for_reviewer first (assigned-only)...');
       const { data: assignedSubmissions, error: assignedError } = await supabase
         .rpc('get_submissions_for_reviewer', { reviewer_user_id: userId });
+
+  debugInfo.assignedError = assignedError ? ((assignedError as any).message || assignedError) : null;
 
       if (!assignedError && assignedSubmissions && assignedSubmissions.length > 0) {
         console.log(`Found ${assignedSubmissions.length} submissions assigned to reviewer ${userId} (RPC)`);
@@ -146,6 +150,8 @@ export async function GET(request: NextRequest) {
           .order('submission_date', { ascending: false })
           .limit(10);
 
+  debugInfo.directError = directError ? ((directError as any).message || directError) : null;
+
         if (!directError && directSubmissions && directSubmissions.length > 0) {
           console.log(`Found ${directSubmissions.length} real submissions using direct query`);
           hasRealData = true;
@@ -174,6 +180,8 @@ export async function GET(request: NextRequest) {
           // Fallback 2: Try to get submissions using the general RPC function
           const { data: submissions, error: submissionsError } = await supabase
             .rpc('get_submissions_for_review');
+
+          debugInfo.submissionsError = submissionsError ? ((submissionsError as any).message || submissionsError) : null;
 
           if (!submissionsError && submissions && submissions.length > 0) {
             console.log(`Found ${submissions.length} real submissions using general RPC function`);
@@ -205,6 +213,7 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (realDataError) {
+      debugInfo.realDataError = realDataError && ((realDataError as any).message || realDataError);
       console.log('Real data fetch failed, using mock data:', realDataError);
     }
     
@@ -285,7 +294,8 @@ export async function GET(request: NextRequest) {
         performance_rating: 4.2
       },
       dataSource: hasRealData ? 'database' : 'mock',
-      message: hasRealData ? `Showing ${pendingReviews.length} real submissions available for review` : 'Showing demo data - real submissions will appear when authors submit manuscripts'
+      message: hasRealData ? `Showing ${pendingReviews.length} real submissions available for review` : 'Showing demo data - real submissions will appear when authors submit manuscripts',
+      debugInfo: debug ? debugInfo : undefined
     };
 
     console.log(`Returning dashboard data with ${pendingReviews.length} reviews (${hasRealData ? 'real' : 'mock'} data)`);
