@@ -391,6 +391,18 @@ async function run() {
       }
     }
 
+    // Prepare a list of DB submission ids we inserted/found so verification can show samples
+    const insertedSubmissionIds = (idMap && Object.keys(idMap).length > 0)
+      ? Array.from(new Set(Object.values(idMap))).map((v) => (typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : v))
+      : [];
+
+    // Run post-seed verification to print counts and sample rows
+    try {
+      await postSeedVerify(insertedSubmissionIds);
+    } catch (e) {
+      console.warn('postSeedVerify failed:', e && e.message ? e.message : e);
+    }
+
     console.log('\nSeed completed. Verify with queries in Supabase SQL editor:');
     console.log("SELECT id,email FROM auth.users WHERE email LIKE '%@test.com';");
     console.log("SELECT id,first_name,last_name,role FROM users WHERE email LIKE '%@test.com';");
