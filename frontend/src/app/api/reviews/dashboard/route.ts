@@ -91,7 +91,10 @@ export async function GET(request: NextRequest) {
     // Try to fetch real submissions - prefer assigned reviews for this reviewer first
     let pendingReviews = [];
     let hasRealData = false;
-    const debug = request.nextUrl?.searchParams?.get('debug') === 'true';
+  // Only include debug output when an environment flag explicitly enables it.
+  // This prevents leaking internal debug details in production deployments.
+  const allowDebug = (process.env.NEXT_PUBLIC_DEBUG_DASHBOARD === 'true') || (process.env.DEBUG_DASHBOARD === 'true');
+  const debug = allowDebug && request.nextUrl?.searchParams?.get('debug') === 'true';
     const debugInfo: Record<string, any> = {};
 
     try {
@@ -107,7 +110,7 @@ export async function GET(request: NextRequest) {
 
         for (const submission of assignedSubmissions) {
           pendingReviews.push({
-            id: `real-${submission.id}`,
+            id: submission.id,
             submission_id: submission.id,
             title: submission.title || 'Untitled Manuscript',
             abstract: submission.abstract || 'No abstract available',
@@ -156,10 +159,10 @@ export async function GET(request: NextRequest) {
           console.log(`Found ${directSubmissions.length} real submissions using direct query`);
           hasRealData = true;
 
-          for (const submission of directSubmissions) {
+      for (const submission of directSubmissions) {
             const author = submission.users as any;
             pendingReviews.push({
-              id: `real-${submission.id}`,
+        id: submission.id,
               submission_id: submission.id,
               title: submission.title || 'Untitled Manuscript',
               abstract: submission.abstract || 'No abstract available',
@@ -188,8 +191,8 @@ export async function GET(request: NextRequest) {
             hasRealData = true;
 
             for (const submission of submissions.slice(0, 10)) {
-              pendingReviews.push({
-                id: `real-${submission.id}`,
+        pendingReviews.push({
+          id: submission.id,
                 submission_id: submission.id,
                 title: submission.title || 'Untitled Manuscript',
                 abstract: submission.abstract || 'No abstract available',
