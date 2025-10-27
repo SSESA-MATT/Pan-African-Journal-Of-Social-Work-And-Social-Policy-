@@ -41,45 +41,13 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id;
     console.log('Fetching submissions for secure user ID:', userId);
 
-    // Determine user role so admins/editors can see all submissions
-    let role: string | undefined = undefined;
-    try {
-      const profileRes = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', userId)
-        .single();
-      if (profileRes.error) throw profileRes.error;
-      role = profileRes.data?.role;
-    } catch (profileErr) {
-      console.error('Failed to fetch user profile with route client:', profileErr);
-      // Try admin client if available to get role for diagnostics
-      try {
-        // import admin client dynamically to avoid circular imports at runtime
-        const { supabaseAdmin } = await import('@/lib/supabase-admin');
-        if (supabaseAdmin) {
-          const adminProfile = await supabaseAdmin
-            .from('users')
-            .select('role')
-            .eq('id', userId)
-            .single();
-          if (!adminProfile.error) role = adminProfile.data?.role;
-          else console.warn('Admin profile lookup also failed:', adminProfile.error);
-        }
-      } catch (adminLookupErr) {
-        console.warn('Admin lookup attempt failed:', adminLookupErr);
-      }
-    }
-
-    console.log('Authenticated user role:', role);
-
-    // Build the query: admins/editors can fetch all submissions, authors only their own
-    const submissionsQuery = supabase.from('submissions').select('*').order('created_at', { ascending: false });
-
-    if (role !== 'admin' && role !== 'editor') {
-      submissionsQuery.eq('author_id', userId);
-    }
-    const { data: submissions, error } = await submissionsQuery;
+    // For author dashboard, only fetch user's own submissions (much faster)
+    // Admin/editor views should use separate endpoints
+    const { data: submissions, error } = await supabase
+      .from('submissions')
+      .select('*')
+      .eq('author_id', userId)
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Database GET error:', error);
@@ -117,8 +85,8 @@ export async function GET(request: NextRequest) {
       assigned_reviewers: []
     }));
 
-  // Wrap the result to match frontend shape expected by submissionApi
-  return NextResponse.json({ submissions: manuscripts }, { headers: corsHeaders() });
+  // Return manuscripts array directly (not wrapped in submissions object)
+  return NextResponse.json(manuscripts, { headers: corsHeaders() });
 
   } catch (error: any) {
     console.error('GET submissions error:', error);

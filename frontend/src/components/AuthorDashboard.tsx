@@ -36,26 +36,25 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
   const loadManuscripts = async () => {
     try {
       setLoading(true);
-      setError(null); // Clear previous errors
-      console.log('loadManuscripts - Starting...');
-      console.log('loadManuscripts - user object:', user);
-      console.log('loadManuscripts - user.id:', user!.id);
-      console.log('loadManuscripts - user.id type:', typeof user!.id);
+      setError(null);
       
       const userManuscripts = await getUserManuscripts(user!.id);
-      console.log('loadManuscripts - Retrieved manuscripts:', userManuscripts);
-      console.log('loadManuscripts - Manuscript count:', userManuscripts.length);
       
-      setManuscripts(userManuscripts);
+      // Ensure we always get an array
+      const manuscriptsArray = Array.isArray(userManuscripts) ? userManuscripts : [];
+      setManuscripts(manuscriptsArray);
+      
     } catch (err) {
-      console.error('loadManuscripts error:', err);
+      console.error('Failed to load manuscripts:', err);
       
-      // Check if it's an authentication error
       if (err instanceof Error && err.message.includes('401')) {
-        setError('Authentication expired. Please log in again to view your manuscripts.');
+        setError('Please log in to view your manuscripts.');
       } else {
-        setError('Failed to load manuscripts. Please try again or contact support if the issue persists.');
+        setError('Failed to load manuscripts. Please try again.');
       }
+      
+      // Set empty array on error to prevent filter issues
+      setManuscripts([]);
     } finally {
       setLoading(false);
     }
@@ -93,13 +92,16 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
     ).join(' ');
   };
 
+  // Ensure manuscripts is always an array to prevent filter errors
+  const manuscriptsArray = Array.isArray(manuscripts) ? manuscripts : [];
+  
   const manuscriptStats = {
-    total: manuscripts.length,
-    draft: manuscripts.filter(m => m.status === 'draft').length,
-    submitted: manuscripts.filter(m => m.status === 'submitted').length,
-    underReview: manuscripts.filter(m => m.status === 'under-review').length,
-    accepted: manuscripts.filter(m => m.status === 'accepted').length,
-    published: manuscripts.filter(m => m.status === 'published').length,
+    total: manuscriptsArray.length,
+    draft: manuscriptsArray.filter(m => m.status === 'draft').length,
+    submitted: manuscriptsArray.filter(m => m.status === 'submitted').length,
+    underReview: manuscriptsArray.filter(m => m.status === 'under-review').length,
+    accepted: manuscriptsArray.filter(m => m.status === 'accepted').length,
+    published: manuscriptsArray.filter(m => m.status === 'published').length,
   };
 
   if (!user || !['author', 'admin'].includes(user.role)) {
@@ -174,8 +176,17 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {loading && (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-2 text-gray-600">Loading dashboard...</span>
+              </div>
+            )}
+            
+            {!loading && (
+              <>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="bg-white overflow-hidden shadow rounded-lg">
                 <div className="p-5">
                   <div className="flex items-center">
@@ -256,7 +267,7 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
                 <p className="mt-1 max-w-2xl text-sm text-gray-500">Your latest manuscript submissions and updates.</p>
               </div>
               <ul className="divide-y divide-gray-200">
-                {manuscripts.slice(0, 5).map((manuscript) => (
+                {manuscriptsArray.slice(0, 5).map((manuscript) => (
                   <li key={manuscript.id}>
                     <div className="px-4 py-4 flex items-center justify-between">
                       <div className="flex items-center">
@@ -284,7 +295,7 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
                   </li>
                 ))}
               </ul>
-              {manuscripts.length === 0 && (
+              {manuscriptsArray.length === 0 && (
                 <div className="px-4 py-12 text-center">
                   <p className="text-gray-500">No manuscripts yet. Start by creating your first submission!</p>
                   <button
@@ -295,7 +306,9 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
                   </button>
                 </div>
               )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -320,7 +333,7 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
               </div>
             ) : (
               <ul className="divide-y divide-gray-200">
-                {manuscripts.map((manuscript) => (
+                {manuscriptsArray.map((manuscript) => (
                   <li key={manuscript.id}>
                     <div className="px-4 py-6">
                       <div className="flex items-center justify-between">
@@ -375,7 +388,7 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
               </ul>
             )}
             
-            {manuscripts.length === 0 && !loading && (
+            {manuscriptsArray.length === 0 && !loading && (
               <div className="px-4 py-12 text-center">
                 <p className="text-gray-500">No manuscripts found.</p>
                 <button
@@ -392,16 +405,8 @@ const AuthorDashboard: React.FC<AuthorDashboardProps> = ({ onViewManuscript }) =
         {activeTab === 'new-submission' && (
           <SubmissionForm 
             onSubmissionComplete={() => {
-              console.log('*** SUBMISSION COMPLETED - Starting refresh process ***');
-              console.log('Current user:', user);
-              console.log('Current manuscripts count before reload:', manuscripts.length);
-              
-              // Reload manuscripts
-              loadManuscripts().then(() => {
-                console.log('*** Manuscripts reloaded, switching to manuscripts tab ***');
-              });
-              
-              // Switch to manuscripts tab
+              // Reload manuscripts and switch to manuscripts tab
+              loadManuscripts();
               setActiveTab('manuscripts');
             }}
           />
