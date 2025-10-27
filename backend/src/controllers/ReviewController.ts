@@ -237,7 +237,8 @@ export class ReviewController {
         return;
       }
 
-      const assignmentResult = await this.reviewService.assignReviewer(submissionId, reviewerId, assignerId);
+  // Perform assignment via ReviewService which now delegates to ManuscriptRepository
+  const assignmentResult = await this.reviewService.assignReviewer(submissionId, reviewerId, assignerId);
 
       // Send email notification to the assigned reviewer
       try {

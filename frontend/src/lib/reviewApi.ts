@@ -99,9 +99,10 @@ class ReviewApi {
    * Assign reviewer to submission (admin/editor only)
    */
   async assignReviewer(assignmentData: AssignReviewerRequest): Promise<{ message: string }> {
+    // Call the canonical backend assign endpoint
     return this.makeRequest('/reviews/assign', {
       method: 'POST',
-      body: JSON.stringify(assignmentData),
+      body: JSON.stringify({ submissionId: assignmentData.submissionId, reviewerId: assignmentData.reviewerId }),
     });
   }
 

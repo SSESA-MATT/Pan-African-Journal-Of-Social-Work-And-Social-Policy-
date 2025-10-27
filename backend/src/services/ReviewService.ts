@@ -1,6 +1,7 @@
 import { ReviewRepository } from '../models/ReviewRepository';
 import { SubmissionRepository } from '../models/SubmissionRepository';
 import { UserRepository } from '../models/UserRepository';
+import { ManuscriptRepository } from '../models/ManuscriptRepository';
 import { Review, CreateReviewRequest } from '../models/types';
 
 export class ReviewService {
@@ -160,22 +161,19 @@ export class ReviewService {
       throw new Error('Reviewer is already assigned to this submission');
     }
 
-    // For now, we'll create a placeholder review entry to track assignment
-    // In a more complex system, you might have a separate reviewer_assignments table
-    // This is a simplified approach that works with the current schema
-    
-    // Update submission status to under_review if needed
-    if (submission.status === 'submitted') {
-      await this.submissionRepository.update(submissionId, {
-        status: 'under_review',
-        updated_at: new Date(),
-      });
-    }
+    // Use ManuscriptRepository to create an assignment record in manuscript_reviews
+    // This encapsulates creation of the review-assignment row and updating manuscript status
+    const manuscriptRepo = new ManuscriptRepository();
 
-    // Return submission and reviewer information for email notifications
+    // manuscriptRepo.assignReviewer will throw on error (e.g. already assigned)
+    await manuscriptRepo.assignReviewer(submissionId, reviewerId);
+
+    // Re-fetch submission (manuscript) to return consistent data for email notifications
+    const updatedSubmission = await this.submissionRepository.findById(submissionId);
+
     return {
-      submission,
-      reviewer
+      submission: updatedSubmission,
+      reviewer,
     };
   }
 
