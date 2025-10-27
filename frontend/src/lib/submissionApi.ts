@@ -167,4 +167,11 @@ export const submissionApi = {
   async deleteSubmission(id: string): Promise<{ message: string }> {
     return apiRequest(`${API_BASE_URL}/submissions/${id}`, { method: 'DELETE' });
   },
+
+  /**
+   * Get detailed submission information
+   */
+  async getSubmissionDetails(id: string): Promise<{ submission: SubmissionWithAuthor }> {
+    return apiRequest(`${API_BASE_URL}/submissions/${id}/details`, { method: 'GET' });
+  },
 };

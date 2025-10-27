@@ -138,6 +138,42 @@ class ReviewApi {
   }> {
     return this.makeRequest('/reviews/statistics');
   }
+
+  /**
+   * Get assigned submissions for current reviewer
+   */
+  async getAssignedSubmissions(): Promise<{ reviews: any[] }> {
+    return this.makeRequest('/reviews/assigned');
+  }
+
+  /**
+   * Get completed reviews for current reviewer
+   */
+  async getCompletedReviews(): Promise<{ reviews: any[] }> {
+    return this.makeRequest('/reviews/completed');
+  }
+
+  /**
+   * Get submission details for review
+   */
+  async getSubmissionForReview(submissionId: string): Promise<{ submission: any }> {
+    return this.makeRequest(`/reviews/submission/${submissionId}`);
+  }
+
+  /**
+   * Assign reviewer with detailed parameters
+   */
+  async assignReviewerDetailed(assignmentData: {
+    submission_id: string;
+    reviewer_id: string;
+    due_date: string;
+    instructions?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    return this.makeRequest('/reviews/assign-detailed', {
+      method: 'POST',
+      body: JSON.stringify(assignmentData),
+    });
+  }
 }
 
 export const reviewApi = new ReviewApi();

@@ -10,15 +10,25 @@ export const AdminUserManagement: React.FC = () => {
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [selectedRole, setSelectedRole] = useState<User['role'] | 'all'>('all');
+  const [selectedRoles, setSelectedRoles] = useState<User['role'][]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [expertiseFilter, setExpertiseFilter] = useState('');
+  const [activityFilter, setActivityFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [bulkAction, setBulkAction] = useState<'role' | 'email' | 'deactivate' | ''>('');
+  const [bulkRole, setBulkRole] = useState<User['role']>('author');
+  const [bulkEmailSubject, setBulkEmailSubject] = useState('');
+  const [bulkEmailMessage, setBulkEmailMessage] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   // Form states
   const [createForm, setCreateForm] = useState<CreateUserRequest>({
@@ -45,7 +55,7 @@ export const AdminUserManagement: React.FC = () => {
 
   useEffect(() => {
     filterUsers();
-  }, [users, selectedRole, searchTerm]);
+  }, [users, selectedRole, selectedRoles, searchTerm, expertiseFilter, activityFilter]);
 
   const loadUsers = async () => {
     try {
@@ -77,10 +87,15 @@ export const AdminUserManagement: React.FC = () => {
   const filterUsers = () => {
     let filtered = users;
 
+    // Role filtering (support multiple roles)
     if (selectedRole !== 'all') {
       filtered = filtered.filter(user => user.role === selectedRole);
     }
+    if (selectedRoles.length > 0) {
+      filtered = filtered.filter(user => selectedRoles.includes(user.role));
+    }
 
+    // Text search
     if (searchTerm) {
       filtered = filtered.filter(user => 
         user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -88,6 +103,28 @@ export const AdminUserManagement: React.FC = () => {
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.affiliation.toLowerCase().includes(searchTerm.toLowerCase())
       );
+    }
+
+    // Expertise filtering
+    if (expertiseFilter) {
+      filtered = filtered.filter(user => 
+        user.expertise && user.expertise.some(exp => 
+          exp.toLowerCase().includes(expertiseFilter.toLowerCase())
+        )
+      );
+    }
+
+    // Activity filtering (mock implementation - would need real last_login data)
+    if (activityFilter !== 'all') {
+      // For now, consider users created in last 30 days as "active"
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      if (activityFilter === 'active') {
+        filtered = filtered.filter(user => new Date(user.created_at) > thirtyDaysAgo);
+      } else {
+        filtered = filtered.filter(user => new Date(user.created_at) <= thirtyDaysAgo);
+      }
     }
 
     setFilteredUsers(filtered);
@@ -166,6 +203,93 @@ export const AdminUserManagement: React.FC = () => {
     } finally {
       setIsDeleting(null);
     }
+  };
+
+  const handleSelectUser = (userId: string) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const handleSelectAllUsers = () => {
+    if (selectedUsers.length === filteredUsers.length) {
+      setSelectedUsers([]);
+    } else {
+      setSelectedUsers(filteredUsers.map(user => user.id));
+    }
+  };
+
+  const handleBulkAction = async () => {
+    if (!bulkAction || selectedUsers.length === 0) return;
+
+    try {
+      setIsBulkProcessing(true);
+      setError(null);
+
+      switch (bulkAction) {
+        case 'role':
+          // Bulk role change
+          const rolePromises = selectedUsers.map(userId => 
+            userApi.updateUserRole(userId, bulkRole)
+          );
+          await Promise.all(rolePromises);
+          
+          // Update local state
+          setUsers(prev => prev.map(user => 
+            selectedUsers.includes(user.id) ? { ...user, role: bulkRole } : user
+          ));
+          break;
+
+        case 'email':
+          // Bulk email (mock implementation - would need email service)
+          console.log('Sending bulk email:', {
+            recipients: selectedUsers,
+            subject: bulkEmailSubject,
+            message: bulkEmailMessage
+          });
+          // In real implementation, call email API
+          break;
+
+        case 'deactivate':
+          // Bulk deactivation (mock implementation - would need user status field)
+          console.log('Deactivating users:', selectedUsers);
+          // In real implementation, update user status
+          break;
+      }
+
+      setSelectedUsers([]);
+      setBulkAction('');
+      setShowBulkModal(false);
+      await loadUserStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to perform bulk action');
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const exportUsers = () => {
+    const csvContent = [
+      ['Name', 'Email', 'Role', 'Affiliation', 'Joined', 'Expertise'].join(','),
+      ...filteredUsers.map(user => [
+        `"${user.first_name} ${user.last_name}"`,
+        user.email,
+        user.role,
+        `"${user.affiliation}"`,
+        new Date(user.created_at).toLocaleDateString(),
+        `"${user.expertise?.join('; ') || ''}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `users-export-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   const openEditModal = (user: User) => {
@@ -282,10 +406,10 @@ export const AdminUserManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Enhanced Filters */}
       <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <div>
             <label className="block text-sm font-medium text-neutral-700 mb-2">Search Users</label>
             <input
               type="text"
@@ -295,7 +419,8 @@ export const AdminUserManagement: React.FC = () => {
               className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
             />
           </div>
-          <div className="md:w-48">
+          
+          <div>
             <label className="block text-sm font-medium text-neutral-700 mb-2">Filter by Role</label>
             <select
               value={selectedRole}
@@ -309,7 +434,82 @@ export const AdminUserManagement: React.FC = () => {
               <option value="author">Author</option>
             </select>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-2">Search by Expertise</label>
+            <input
+              type="text"
+              placeholder="e.g. Social Work, Policy..."
+              value={expertiseFilter}
+              onChange={(e) => setExpertiseFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-2">Activity Status</label>
+            <select
+              value={activityFilter}
+              onChange={(e) => setActivityFilter(e.target.value as 'all' | 'active' | 'inactive')}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
+            >
+              <option value="all">All Users</option>
+              <option value="active">Recently Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
         </div>
+
+        {/* Bulk Actions Bar */}
+        {selectedUsers.length > 0 && (
+          <div className="border-t border-neutral-200 pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <span className="text-sm font-medium text-neutral-700">
+                  {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''} selected
+                </span>
+                <button
+                  onClick={handleSelectAllUsers}
+                  className="text-sm text-accent-green hover:text-accent-green/80 font-medium"
+                >
+                  {selectedUsers.length === filteredUsers.length ? 'Deselect All' : 'Select All'}
+                </button>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowBulkModal(true)}
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  Bulk Actions
+                </button>
+                <button
+                  onClick={exportUsers}
+                  className="px-3 py-1.5 border border-neutral-300 text-neutral-700 rounded-md hover:bg-neutral-50 transition-colors text-sm font-medium"
+                >
+                  Export CSV
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Export for All Users */}
+        {selectedUsers.length === 0 && (
+          <div className="border-t border-neutral-200 pt-4">
+            <div className="flex justify-end">
+              <button
+                onClick={exportUsers}
+                className="px-3 py-1.5 border border-neutral-300 text-neutral-700 rounded-md hover:bg-neutral-50 transition-colors text-sm font-medium flex items-center"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export All Users
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Error Message */}
@@ -343,32 +543,89 @@ export const AdminUserManagement: React.FC = () => {
           <div className="divide-y divide-neutral-200">
             {filteredUsers.map((user) => (
               <div key={user.id} className="p-6 hover:bg-neutral-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-accent-green to-accent-green/80 rounded-full flex items-center justify-center">
-                      <span className="text-white font-semibold text-lg">
-                        {user.first_name.charAt(0)}{user.last_name.charAt(0)}
+                <div className="flex items-start space-x-4">
+                  {/* Selection Checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={selectedUsers.includes(user.id)}
+                    onChange={() => handleSelectUser(user.id)}
+                    className="mt-2 h-4 w-4 text-accent-green focus:ring-accent-green border-neutral-300 rounded"
+                  />
+
+                  {/* User Avatar */}
+                  <div className="w-12 h-12 bg-gradient-to-br from-accent-green to-accent-green/80 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white font-semibold text-lg">
+                      {user.first_name.charAt(0)}{user.last_name.charAt(0)}
+                    </span>
+                  </div>
+
+                  {/* User Information */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h4 className="text-lg font-medium text-neutral-900">
+                        {user.first_name} {user.last_name}
+                      </h4>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}>
+                        {getRoleIcon(user.role)}
+                        <span className="ml-1 capitalize">{user.role}</span>
+                      </span>
+                      
+                      {/* Activity Indicator */}
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        new Date(user.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-neutral-100 text-neutral-600'
+                      }`}>
+                        {new Date(user.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) ? 'Active' : 'Inactive'}
                       </span>
                     </div>
-                    <div>
-                      <div className="flex items-center space-x-3">
-                        <h4 className="text-lg font-medium text-neutral-900">
-                          {user.first_name} {user.last_name}
-                        </h4>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}>
-                          {getRoleIcon(user.role)}
-                          <span className="ml-1 capitalize">{user.role}</span>
-                        </span>
-                      </div>
+                    
+                    <div className="space-y-1">
                       <p className="text-sm text-neutral-600">{user.email}</p>
                       <p className="text-sm text-neutral-500">{user.affiliation}</p>
-                      <p className="text-xs text-neutral-400 mt-1">
-                        Joined {new Date(user.created_at).toLocaleDateString()}
-                      </p>
+                      
+                      {/* Expertise Tags */}
+                      {user.expertise && user.expertise.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {user.expertise.slice(0, 3).map((area, index) => (
+                            <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              {area}
+                            </span>
+                          ))}
+                          {user.expertise.length > 3 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-neutral-100 text-neutral-600">
+                              +{user.expertise.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center space-x-4 text-xs text-neutral-400 mt-2">
+                        <span>Joined {new Date(user.created_at).toLocaleDateString()}</span>
+                        {user.role === 'reviewer' && (
+                          <>
+                            <span>•</span>
+                            <span>Reviews: 0</span> {/* Would be populated from real data */}
+                          </>
+                        )}
+                        {user.role === 'author' && (
+                          <>
+                            <span>•</span>
+                            <span>Submissions: 0</span> {/* Would be populated from real data */}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2">
+                  {/* Action Buttons */}
+                  <div className="flex flex-col space-y-2 flex-shrink-0">
+                    <button
+                      onClick={() => window.open(`/admin/users/${user.id}/profile`, '_blank')}
+                      className="px-3 py-1.5 text-sm font-medium text-accent-green border border-accent-green rounded-md hover:bg-accent-green hover:text-white transition-colors"
+                    >
+                      View Profile
+                    </button>
                     <button
                       onClick={() => openEditModal(user)}
                       className="px-3 py-1.5 text-sm font-medium text-neutral-700 border border-neutral-300 rounded-md hover:bg-neutral-50 transition-colors"
@@ -608,6 +865,119 @@ export const AdminUserManagement: React.FC = () => {
                 className="px-4 py-2 bg-accent-green text-white rounded-md hover:bg-accent-green/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isUpdating ? 'Updating...' : 'Update User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Actions Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-neutral-900 mb-4">
+              Bulk Actions ({selectedUsers.length} users)
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Select Action
+                </label>
+                <select
+                  value={bulkAction}
+                  onChange={(e) => setBulkAction(e.target.value as 'role' | 'email' | 'deactivate' | '')}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
+                >
+                  <option value="">Choose action...</option>
+                  <option value="role">Change Role</option>
+                  <option value="email">Send Email</option>
+                  <option value="deactivate">Deactivate Users</option>
+                </select>
+              </div>
+
+              {bulkAction === 'role' && (
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    New Role
+                  </label>
+                  <select
+                    value={bulkRole}
+                    onChange={(e) => setBulkRole(e.target.value as User['role'])}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
+                  >
+                    <option value="author">Author</option>
+                    <option value="reviewer">Reviewer</option>
+                    <option value="editor">Editor</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+              )}
+
+              {bulkAction === 'email' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-2">
+                      Email Subject
+                    </label>
+                    <input
+                      type="text"
+                      value={bulkEmailSubject}
+                      onChange={(e) => setBulkEmailSubject(e.target.value)}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
+                      placeholder="Enter email subject..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-2">
+                      Message
+                    </label>
+                    <textarea
+                      value={bulkEmailMessage}
+                      onChange={(e) => setBulkEmailMessage(e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
+                      placeholder="Enter your message..."
+                    />
+                  </div>
+                </>
+              )}
+
+              {bulkAction === 'deactivate' && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-800">
+                    This will temporarily deactivate {selectedUsers.length} user accounts. 
+                    They will not be able to log in until reactivated.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowBulkModal(false);
+                  setBulkAction('');
+                  setBulkEmailSubject('');
+                  setBulkEmailMessage('');
+                }}
+                className="px-4 py-2 border border-neutral-300 text-neutral-700 rounded-md hover:bg-neutral-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkAction}
+                disabled={!bulkAction || isBulkProcessing || (bulkAction === 'email' && (!bulkEmailSubject || !bulkEmailMessage))}
+                className="px-4 py-2 bg-accent-green text-white rounded-md hover:bg-accent-green/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isBulkProcessing ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b border-white mr-2"></div>
+                    Processing...
+                  </div>
+                ) : (
+                  'Apply Action'
+                )}
               </button>
             </div>
           </div>

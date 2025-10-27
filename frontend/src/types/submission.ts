@@ -7,7 +7,7 @@ export interface Submission {
   keywords: string[];
   author_id: string;
   co_authors: string[];
-  status: 'submitted' | 'under_review' | 'revisions_required' | 'accepted' | 'rejected';
+  status: 'submitted' | 'under_review' | 'revisions_required' | 'accepted' | 'rejected' | 'published';
   manuscript_url: string;
   editor_comments?: string;
   submitted_at: string;
@@ -62,7 +62,8 @@ export const SUBMISSION_STATUS_LABELS: Record<Submission['status'], string> = {
   under_review: 'Under Review',
   revisions_required: 'Revisions Required',
   accepted: 'Accepted',
-  rejected: 'Rejected'
+  rejected: 'Rejected',
+  published: 'Published'
 };
 
 export const SUBMISSION_STATUS_COLORS: Record<Submission['status'], string> = {
@@ -70,5 +71,6 @@ export const SUBMISSION_STATUS_COLORS: Record<Submission['status'], string> = {
   under_review: 'bg-secondary-100 text-secondary-800',
   revisions_required: 'bg-primary-100 text-primary-800',
   accepted: 'bg-secondary-100 text-secondary-800 border border-secondary-200',
-  rejected: 'bg-primary-100 text-primary-800 border border-primary-200'
+  rejected: 'bg-primary-100 text-primary-800 border border-primary-200',
+  published: 'bg-blue-100 text-blue-800 border border-blue-200'
 };

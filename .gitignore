@@ -56,12 +56,23 @@ uploads/
 temp/
 
 # Documentation and SQL files (temporary/generated)
+# Keep repository markdown and SQL files tracked; only ignore generated or temporary files
 *.md
 !README.md
 !CONTRIBUTING.md
 !CHANGELOG.md
-*.sql
-!backend/database_schema.sql
-!src/database/schema.sql
+
+# Ignore SQL dumps / database backups created during local work
+*.pgdump
+*.sql.dump
+*.sql.gz
+*.dump
+
+# Ignore local docker-compose overrides and runtime artifacts
+docker-compose.override.yml
+
+# Local env files (samples are tracked, actual secrets should be ignored)
+.env.local
+backend/.env.local
 
 .kiro

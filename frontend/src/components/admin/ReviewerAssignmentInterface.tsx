@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { submissionApi } from '@/lib/submissionApi';
 import { userApi } from '@/lib/userApi';
+import { reviewApi } from '@/lib/reviewApi';
 import { User } from '@/types/auth';
 import { Submission } from '@/types/submission';
 
@@ -16,9 +17,13 @@ export const ReviewerAssignmentInterface: React.FC = () => {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [reviewers, setReviewers] = useState<User[]>([]);
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
+  const [selectedReviewerId, setSelectedReviewerId] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const [showAssignModal, setShowAssignModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [assignmentLoading, setAssignmentLoading] = useState<string | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -47,22 +52,50 @@ export const ReviewerAssignmentInterface: React.FC = () => {
     }
   };
 
-  const handleAssignReviewer = async (submissionId: string, reviewerId: string) => {
+  const handleAssignReviewer = async () => {
+    if (!selectedSubmission || !selectedReviewerId) return;
+
     try {
-      setAssignmentLoading(submissionId);
-      // This would be implemented in the backend API
-      // await submissionApi.assignReviewer(submissionId, reviewerId);
-      
-      // For now, we'll simulate the assignment
-      console.log(`Assigning reviewer ${reviewerId} to submission ${submissionId}`);
-      
-      // Refresh data after assignment
-      await loadData();
+      setIsAssigning(true);
+      setError(null);
+
+      // Create the review assignment
+      const response = await reviewApi.assignReviewerDetailed({
+        submission_id: selectedSubmission.id,
+        reviewer_id: selectedReviewerId,
+        due_date: dueDate,
+        instructions: instructions
+      });
+
+      if (response.success) {
+        // Update submission status to under_review
+        await submissionApi.updateSubmissionStatus(selectedSubmission.id, {
+          status: 'under_review'
+        });
+
+        // Refresh data
+        await loadData();
+        
+        // Close modal and reset state
+        setShowAssignModal(false);
+        setSelectedSubmission(null);
+        setSelectedReviewerId('');
+        setDueDate('');
+        setInstructions('');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to assign reviewer');
     } finally {
-      setAssignmentLoading(null);
+      setIsAssigning(false);
     }
+  };
+
+  const openAssignModal = (submission: Submission) => {
+    setSelectedSubmission(submission);
+    setSelectedReviewerId('');
+    setDueDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]); // 2 weeks from now
+    setInstructions('');
+    setShowAssignModal(true);
   };
 
   const getSubmissionStatusColor = (status: string) => {
@@ -218,42 +251,21 @@ export const ReviewerAssignmentInterface: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Reviewer Assignment */}
-                  <div className="ml-6 flex-shrink-0 w-80">
-                    <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200">
-                      <h5 className="text-sm font-medium text-neutral-900 mb-3">Assign Reviewers</h5>
-                      
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
-                        {reviewers.map((reviewer) => (
-                          <div key={reviewer.id} className="flex items-center justify-between p-2 bg-white rounded border border-neutral-200">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-neutral-900 truncate">
-                                {reviewer.first_name} {reviewer.last_name}
-                              </p>
-                              <p className="text-xs text-neutral-500 truncate">
-                                {reviewer.affiliation}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => handleAssignReviewer(submission.id, reviewer.id)}
-                              disabled={assignmentLoading === submission.id}
-                              className="ml-2 px-3 py-1 text-xs font-medium bg-accent-green text-white rounded hover:bg-accent-green/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                              {assignmentLoading === submission.id ? (
-                                <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
-                              ) : (
-                                'Assign'
-                              )}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-
-                      {reviewers.length === 0 && (
-                        <p className="text-sm text-neutral-500 text-center py-4">
-                          No reviewers available
-                        </p>
-                      )}
+                  {/* Assignment Actions */}
+                  <div className="ml-6 flex-shrink-0">
+                    <div className="flex flex-col space-y-2">
+                      <button
+                        onClick={() => openAssignModal(submission)}
+                        className="px-4 py-2 bg-accent-green text-white rounded-md hover:bg-accent-green/80 transition-colors font-medium"
+                      >
+                        Assign Reviewer
+                      </button>
+                      <button
+                        onClick={() => window.open(`/admin/submissions/${submission.id}/details`, '_blank')}
+                        className="px-4 py-2 border border-neutral-300 text-neutral-700 rounded-md hover:bg-neutral-50 transition-colors text-sm"
+                      >
+                        View Details
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -262,6 +274,134 @@ export const ReviewerAssignmentInterface: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Assignment Modal */}
+      {showAssignModal && selectedSubmission && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-neutral-900 mb-4">
+              Assign Reviewer to Submission
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Submission
+                </label>
+                <div className="bg-neutral-50 p-3 rounded border">
+                  <p className="font-medium text-neutral-900">{selectedSubmission.title}</p>
+                  <p className="text-sm text-neutral-600">
+                    by {(selectedSubmission as any).author_name || 'Unknown Author'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Select Reviewer
+                </label>
+                <select
+                  value={selectedReviewerId}
+                  onChange={(e) => setSelectedReviewerId(e.target.value)}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
+                >
+                  <option value="">Choose a reviewer...</option>
+                  {reviewers.map((reviewer) => (
+                    <option key={reviewer.id} value={reviewer.id}>
+                      {reviewer.first_name} {reviewer.last_name} - {reviewer.affiliation}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Due Date
+                </label>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Instructions for Reviewer (Optional)
+                </label>
+                <textarea
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
+                  placeholder="Provide specific instructions or focus areas for the reviewer..."
+                />
+              </div>
+
+              {/* Selected Reviewer Info */}
+              {selectedReviewerId && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">Selected Reviewer</h4>
+                  {(() => {
+                    const reviewer = reviewers.find(r => r.id === selectedReviewerId);
+                    return reviewer ? (
+                      <div>
+                        <p className="text-sm text-blue-800">
+                          <span className="font-medium">{reviewer.first_name} {reviewer.last_name}</span>
+                        </p>
+                        <p className="text-sm text-blue-700">{reviewer.affiliation}</p>
+                        <p className="text-sm text-blue-700">{reviewer.email}</p>
+                        {reviewer.expertise && reviewer.expertise.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs font-medium text-blue-900 mb-1">Expertise:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {reviewer.expertise.map((area, index) => (
+                                <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                  {area}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setSelectedSubmission(null);
+                  setSelectedReviewerId('');
+                  setDueDate('');
+                  setInstructions('');
+                }}
+                className="px-4 py-2 border border-neutral-300 text-neutral-700 rounded-md hover:bg-neutral-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssignReviewer}
+                disabled={!selectedReviewerId || isAssigning}
+                className="px-4 py-2 bg-accent-green text-white rounded-md hover:bg-accent-green/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isAssigning ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b border-white mr-2"></div>
+                    Assigning...
+                  </div>
+                ) : (
+                  'Assign Reviewer'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -112,6 +112,49 @@ class UserApiService {
     });
     return this.handleResponse<ApiResponse<User[]>>(response);
   }
+
+  async getUserProfile(userId: string): Promise<ApiResponse<User>> {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/profile`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse<ApiResponse<User>>(response);
+  }
+
+  async getCurrentUserProfile(): Promise<ApiResponse<User>> {
+    const response = await fetch(`${API_BASE_URL}/users/profile`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse<ApiResponse<User>>(response);
+  }
+
+  async updateUserProfile(userId: string, profileData: Partial<User>): Promise<ApiResponse<User>> {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/profile`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(profileData),
+    });
+    return this.handleResponse<ApiResponse<User>>(response);
+  }
+
+  async bulkUpdateUserRoles(userIds: string[], role: User['role']): Promise<ApiResponse<void>> {
+    const response = await fetch(`${API_BASE_URL}/users/bulk/role`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ userIds, role }),
+    });
+    return this.handleResponse<ApiResponse<void>>(response);
+  }
+
+  async sendBulkEmail(userIds: string[], subject: string, message: string): Promise<ApiResponse<void>> {
+    const response = await fetch(`${API_BASE_URL}/users/bulk/email`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ userIds, subject, message }),
+    });
+    return this.handleResponse<ApiResponse<void>>(response);
+  }
 }
 
 export const userApi = new UserApiService();

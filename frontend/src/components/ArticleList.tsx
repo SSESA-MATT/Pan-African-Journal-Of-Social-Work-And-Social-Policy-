@@ -41,11 +41,21 @@ export const ArticleList: React.FC<ArticleListProps> = ({ filters, searchQuery }
         response = await articleApi.getPublishedArticles(page, articlesPerPage, filters);
       }
 
-      setArticles(response.articles);
-      setTotalPages(response.totalPages);
-      setTotalArticles(response.total);
+      // Ensure response has the expected structure
+      if (!response || typeof response !== 'object') {
+        throw new Error('Invalid response format');
+      }
+
+      setArticles(response.articles || []);
+      setTotalPages(response.totalPages || 1);
+      setTotalArticles(response.total || 0);
     } catch (err) {
+      console.error('Error loading articles:', err);
       setError(err instanceof Error ? err.message : 'Failed to load articles');
+      // Set empty state on error
+      setArticles([]);
+      setTotalPages(1);
+      setTotalArticles(0);
     } finally {
       setIsLoading(false);
     }

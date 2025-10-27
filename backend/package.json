@@ -15,7 +15,17 @@
     "db:init": "npm run db:migrate && npm run db:seed",
     "db:setup": "ts-node src/scripts/init-db.ts",
     "email:test": "ts-node src/scripts/test-email.ts",
-    "security:migrate": "ts-node src/database/migrations/20240808_add_audit_logs.ts"
+    "security:migrate": "ts-node src/database/migrations/20240808_add_audit_logs.ts",
+    "migrate:journal": "ts-node src/database/run-migration.ts migrate",
+    "rollback:journal": "ts-node src/database/run-migration.ts rollback",
+    "populate-articles": "ts-node src/scripts/populate-articles.ts",
+    "migrate": "ts-node src/database/migrate.ts up",
+    "migrate:down": "ts-node src/database/migrate.ts down",
+    "migrate:status": "ts-node src/database/migrate.ts status",
+    "seed:journal": "ts-node src/database/seed-journal-enhancements.ts",
+    "test:search": "ts-node src/database/test-search-performance.ts",
+    "validate:setup": "ts-node src/database/validate-setup.ts",
+    "setup:journal": "npm run migrate && npm run seed:journal && npm run validate:setup"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.54.0",

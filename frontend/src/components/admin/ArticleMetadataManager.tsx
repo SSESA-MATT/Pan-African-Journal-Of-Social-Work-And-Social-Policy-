@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { articleApi } from '@/lib/articleApi';
+import { submissionApi } from '@/lib/submissionApi';
 import { ArticleWithDetails, ArticleSearchFilters } from '@/types/article';
 
 export const ArticleMetadataManager: React.FC = () => {

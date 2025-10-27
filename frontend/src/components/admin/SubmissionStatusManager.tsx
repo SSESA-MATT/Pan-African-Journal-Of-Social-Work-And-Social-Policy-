@@ -290,6 +290,13 @@ export const SubmissionStatusManager: React.FC = () => {
 
                   <div className="ml-6 flex-shrink-0 flex flex-col space-y-2">
                     <button
+                      onClick={() => window.open(`/admin/submissions/${submission.id}/details`, '_blank')}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                    >
+                      View Details
+                    </button>
+                    
+                    <button
                       onClick={() => openStatusModal(submission)}
                       disabled={updatingStatus === submission.id}
                       className="px-4 py-2 bg-accent-green text-white rounded-md hover:bg-accent-green/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"

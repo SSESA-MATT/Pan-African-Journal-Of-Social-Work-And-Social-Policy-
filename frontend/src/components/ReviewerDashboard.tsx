@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { reviewApi } from '../lib/reviewApi';
+import { ReviewerAssignmentTracker } from './ReviewerAssignmentTracker';
 import { ReviewerDashboardData, PendingReview, CompletedReview, RECOMMENDATION_LABELS, RECOMMENDATION_COLORS } from '../types/review';
 
 export default function ReviewerDashboard() {
   const [dashboardData, setDashboardData] = useState<ReviewerDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'pending' | 'completed'>('pending');
+  const [activeTab, setActiveTab] = useState<'tracker' | 'pending' | 'completed'>('tracker');
   const router = useRouter();
 
   useEffect(() => {
@@ -141,6 +142,16 @@ export default function ReviewerDashboard() {
         <div className="border-b border-gray-200 mb-6">
           <nav className="-mb-px flex space-x-8">
             <button
+              onClick={() => setActiveTab('tracker')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'tracker'
+                  ? 'border-red-500 text-red-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Assignment Tracker
+            </button>
+            <button
               onClick={() => setActiveTab('pending')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'pending'
@@ -164,6 +175,8 @@ export default function ReviewerDashboard() {
         </div>
 
         {/* Content */}
+        {activeTab === 'tracker' && <ReviewerAssignmentTracker />}
+        
         {activeTab === 'pending' && (
           <div className="space-y-4">
             {dashboardData.pendingReviews.length === 0 ? (
@@ -173,28 +186,55 @@ export default function ReviewerDashboard() {
                 <p className="text-gray-500">You have no manuscripts waiting for review at this time.</p>
               </div>
             ) : (
-              dashboardData.pendingReviews.map((submission: PendingReview) => (
-                <div key={submission.id} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+              dashboardData.pendingReviews.map((review: any) => (
+                <div key={review.id} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-black mb-2">{submission.title}</h3>
-                      <p className="text-gray-600 mb-3">{truncateText(submission.abstract, 200)}</p>
+                      <h3 className="text-lg font-semibold text-black mb-2">
+                        {review.submission_title || review.title || 'Untitled Submission'}
+                      </h3>
+                      <p className="text-gray-600 mb-3">
+                        {review.abstract ? truncateText(review.abstract, 200) : 'No abstract available'}
+                      </p>
+                      <div className="flex items-center text-sm text-gray-500 space-x-4 mb-2">
+                        <span>Assigned: {formatDate(review.assigned_at)}</span>
+                        <span>Due: {formatDate(review.due_date)}</span>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          new Date(review.due_date) < new Date() 
+                            ? 'bg-red-100 text-red-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {new Date(review.due_date) < new Date() ? 'Overdue' : 'Pending'}
+                        </span>
+                      </div>
+                      {review.instructions && (
+                        <div className="bg-gray-50 border border-gray-200 rounded-md p-3 mb-3">
+                          <p className="text-xs font-medium text-gray-600 mb-1">Review Instructions:</p>
+                          <p className="text-sm text-gray-700">{review.instructions}</p>
+                        </div>
+                      )}
                       <div className="flex items-center text-sm text-gray-500 space-x-4">
                         <span>
-                          Author: {submission.author_first_name} {submission.author_last_name}
+                          Author: {review.author_first_name || 'Unknown'} {review.author_last_name || 'Author'}
                         </span>
-                        <span>Submitted: {formatDate(submission.submitted_at)}</span>
+                        <span>Submission ID: {review.submission_id}</span>
                       </div>
                     </div>
-                    <div className="ml-4 flex-shrink-0">
+                    <div className="ml-4 flex-shrink-0 flex flex-col space-y-2">
                       <button
                         onClick={() => {
                           // Navigate to review form using Next router for correct basePath handling
-                          router.push(`/reviewer/review/${submission.id}`);
+                          router.push(`/reviewer/review/${review.submission_id}`);
                         }}
                         className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
                       >
-                        Start Review
+                        {review.status === 'pending' ? 'Start Review' : 'Continue Review'}
+                      </button>
+                      <button
+                        onClick={() => window.open(`/submissions/${review.submission_id}/preview`, '_blank')}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-sm"
+                      >
+                        Quick Preview
                       </button>
                     </div>
                   </div>

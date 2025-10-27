@@ -12,6 +12,9 @@ import fileRoutes from './routes/files';
 import submissionRoutes from './routes/submissions';
 import reviewRoutes from './routes/reviews';
 import manuscriptRoutes from './routes/manuscripts';
+import articleRoutes from './routes/articles';
+import publicationRoutes from './routes/publications';
+import searchRoutes from './routes/search';
 
 // Import services
 import { EmailService } from './services';
@@ -69,6 +72,9 @@ app.use('/api/files', fileRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/manuscripts', manuscriptRoutes);
+app.use('/api/articles', articleRoutes);
+app.use('/api/volumes', articleRoutes); // Volume routes are in articles.js
+app.use('/api/publications', publicationRoutes);
 
 // Catch-all for undefined API routes
 app.use('/api/*', (req, res) => {

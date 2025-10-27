@@ -68,6 +68,13 @@ router.get('/statistics', submissionController.getSubmissionStatistics);
 router.get('/search', submissionController.searchSubmissions);
 
 /**
+ * @route GET /api/submissions/accepted
+ * @desc Get accepted submissions ready for publication (admin/editor only)
+ * @access Private (Admin/Editor)
+ */
+router.get('/accepted', submissionController.getAcceptedSubmissions);
+
+/**
  * @route GET /api/submissions/:id
  * @desc Get submission by ID
  * @access Private (Author can only see own, Admin/Editor can see all)

@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Pool, QueryResult } from 'pg';
 
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_ANON_KEY!;
@@ -6,10 +7,29 @@ const supabaseKey = process.env.SUPABASE_ANON_KEY!;
 export abstract class BaseRepository<T> {
   protected supabase: SupabaseClient;
   protected tableName: string;
+  // Shared pg pool for raw SQL queries used by some repositories
+  private static pgPool: Pool | null = null;
 
   constructor(tableName: string) {
     this.supabase = createClient(supabaseUrl, supabaseKey);
     this.tableName = tableName;
+  }
+
+  /**
+   * Run a raw SQL query using pg Pool. Some legacy repositories expect a `query` method.
+   * Falls back to throwing a clear error if DATABASE_URL is not configured.
+   */
+  protected async query(sql: string, params?: any[]): Promise<QueryResult<any>> {
+    if (!BaseRepository.pgPool) {
+      const databaseUrl = process.env.DATABASE_URL;
+      if (!databaseUrl) {
+        throw new Error('DATABASE_URL is not set; raw SQL queries are unavailable');
+      }
+
+      BaseRepository.pgPool = new Pool({ connectionString: databaseUrl });
+    }
+
+    return BaseRepository.pgPool.query(sql, params || []);
   }
 
   /**
