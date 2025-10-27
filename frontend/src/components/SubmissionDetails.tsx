@@ -18,3 +18,4 @@ const SubmissionDetails: React.FC<SubmissionDetailsProps> = ({ submissionId }) =
 };
 
 export default SubmissionDetails;
+export { SubmissionDetails };

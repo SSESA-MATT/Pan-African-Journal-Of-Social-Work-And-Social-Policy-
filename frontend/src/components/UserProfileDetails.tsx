@@ -18,3 +18,4 @@ const UserProfileDetails: React.FC<UserProfileDetailsProps> = ({ userId }) => {
 };
 
 export default UserProfileDetails;
+export { UserProfileDetails };
