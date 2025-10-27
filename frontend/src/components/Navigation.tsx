@@ -2,19 +2,30 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from './AuthProvider';
 import { JournalLogo } from './JournalLogo';
 
 export const Navigation: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleLogout = async () => {
     try {
       await logout();
     } catch (error) {
       console.error('Logout failed:', error);
+    }
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
     }
   };
 
@@ -47,6 +58,12 @@ export const Navigation: React.FC = () => {
                 className="text-neutral-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors"
               >
                 Articles
+              </Link>
+              <Link
+                href="/search"
+                className="text-neutral-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors"
+              >
+                Search
               </Link>
               
               {/* Guidelines Dropdown */}
@@ -129,6 +146,29 @@ export const Navigation: React.FC = () => {
                 Contact
               </Link>
             </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="hidden md:flex flex-1 max-w-lg mx-8">
+            <form onSubmit={handleSearch} className="w-full">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search articles, authors, keywords..."
+                  className="w-full bg-neutral-800 text-white placeholder-neutral-400 border border-neutral-600 rounded-lg px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
+                />
+                <button
+                  type="submit"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </button>
+              </div>
+            </form>
           </div>
 
           {/* User menu */}
@@ -285,6 +325,36 @@ export const Navigation: React.FC = () => {
             >
               Articles
             </Link>
+            <Link
+              href="/search"
+              className="block text-neutral-300 hover:text-white px-3 py-2 text-base font-medium transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Search
+            </Link>
+            
+            {/* Mobile Search */}
+            <div className="px-3 py-2">
+              <form onSubmit={handleSearch} className="w-full">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search articles..."
+                    className="w-full bg-neutral-700 text-white placeholder-neutral-400 border border-neutral-600 rounded-lg px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
+                  />
+                  <button
+                    type="submit"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </button>
+                </div>
+              </form>
+            </div>
             
             {/* Mobile Guidelines section */}
             <div className="px-3 py-2">
