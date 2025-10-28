@@ -6,15 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
     
-    // Get current authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' }, 
-        { status: 401 }
-      );
-    }
+    // Volumes should be publicly accessible for reading
 
     // Get all volumes with issue counts
     const { data: volumes, error: volumesError } = await supabase

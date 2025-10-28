@@ -4,13 +4,13 @@ import { createClient } from '@supabase/supabase-js';
 export async function GET(request: NextRequest) {
   // Create Supabase client inside the function to avoid build-time issues
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     return NextResponse.json({
       success: false,
       message: 'Supabase configuration missing',
-      error: 'NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured'
+      error: 'NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_KEY must be configured'
     }, { status: 500 });
   }
 
@@ -40,20 +40,60 @@ export async function GET(request: NextRequest) {
 
     const startTime = Date.now();
 
-    // Use the advanced search function
-    const { data: searchResults, error: searchError } = await supabase
-      .rpc('search_articles_advanced', {
-        search_query: query || null,
-        author_filter: authors.length > 0 ? authors[0] : null, // Simplified for now
-        keyword_filter: keywords.length > 0 ? keywords : null,
-        volume_filter: volumes.length > 0 ? volumes : null,
-        issue_filter: issues.length > 0 ? issues : null,
-        date_from: dateFrom ? new Date(dateFrom).toISOString() : null,
-        date_to: dateTo ? new Date(dateTo).toISOString() : null,
-        article_type_filter: types.length > 0 ? types : null,
-        limit_count: limit,
-        offset_count: (page - 1) * limit
-      });
+    // Build search query using Supabase query builder
+    let searchQuery = supabase
+      .from('articles')
+      .select(`
+        id,
+        title,
+        abstract,
+        authors,
+        keywords,
+        published_at,
+        volume_id,
+        issue_id,
+        article_type,
+        language_code,
+        pdf_url
+      `)
+      .not('published_at', 'is', null);
+
+    // Apply text search if query provided
+    if (query) {
+      searchQuery = searchQuery.or(`title.ilike.%${query}%,abstract.ilike.%${query}%`);
+    }
+
+    // Apply filters
+    if (volumes.length > 0) {
+      searchQuery = searchQuery.in('volume_id', volumes);
+    }
+    
+    if (issues.length > 0) {
+      searchQuery = searchQuery.in('issue_id', issues);
+    }
+    
+    if (types.length > 0) {
+      searchQuery = searchQuery.in('article_type', types);
+    }
+    
+    if (language) {
+      searchQuery = searchQuery.eq('language_code', language);
+    }
+    
+    if (dateFrom) {
+      searchQuery = searchQuery.gte('published_at', dateFrom);
+    }
+    
+    if (dateTo) {
+      searchQuery = searchQuery.lte('published_at', dateTo);
+    }
+
+    // Apply pagination and sorting
+    searchQuery = searchQuery
+      .order('published_at', { ascending: sortOrder === 'asc' })
+      .range((page - 1) * limit, page * limit - 1);
+
+    const { data: searchResults, error: searchError, count } = await searchQuery;
 
     if (searchError) {
       console.error('Search error:', searchError);
@@ -64,90 +104,69 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // Get facets if requested
+    // Get facets if requested (simplified version)
     let facets = null;
     if (includeFacets) {
-      const { data: facetData, error: facetError } = await supabase
-        .rpc('get_search_facets', {
-          search_query: query || null,
-          author_filter: authors.length > 0 ? authors[0] : null,
-          keyword_filter: keywords.length > 0 ? keywords : null,
-          date_from: dateFrom ? new Date(dateFrom).toISOString() : null,
-          date_to: dateTo ? new Date(dateTo).toISOString() : null
+      try {
+        // Get basic facets from articles table
+        const { data: typesFacet } = await supabase
+          .from('articles')
+          .select('article_type')
+          .not('published_at', 'is', null);
+
+        const { data: yearsFacet } = await supabase
+          .from('articles')
+          .select('published_at')
+          .not('published_at', 'is', null);
+
+        // Build facets from the data
+        const typeCounts: { [key: string]: number } = {};
+        const yearCounts: { [key: string]: number } = {};
+
+        typesFacet?.forEach(item => {
+          const type = item.article_type || 'research_article';
+          typeCounts[type] = (typeCounts[type] || 0) + 1;
         });
 
-      if (!facetError && facetData) {
-        // Transform facet data into the expected format
+        yearsFacet?.forEach(item => {
+          const year = new Date(item.published_at).getFullYear().toString();
+          yearCounts[year] = (yearCounts[year] || 0) + 1;
+        });
+
         facets = [
           {
             key: 'types',
             label: 'Article Types',
             type: 'checkbox',
-            values: facetData.types?.map((type: any) => ({
-              value: type.article_type,
-              label: type.article_type.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-              count: type.count,
-              selected: types.includes(type.article_type)
-            })) || []
+            values: Object.entries(typeCounts).map(([type, count]) => ({
+              value: type,
+              label: type.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+              count,
+              selected: types.includes(type)
+            }))
           },
           {
             key: 'years',
             label: 'Publication Year',
             type: 'checkbox',
-            values: facetData.years?.map((year: any) => ({
-              value: year.year,
-              label: year.year.toString(),
-              count: year.count,
-              selected: false
-            })) || []
-          },
-          {
-            key: 'languages',
-            label: 'Language',
-            type: 'radio',
-            values: facetData.languages?.map((lang: any) => ({
-              value: lang.language_code,
-              label: getLanguageName(lang.language_code),
-              count: lang.count,
-              selected: language === lang.language_code
-            })) || []
+            values: Object.entries(yearCounts)
+              .sort(([a], [b]) => parseInt(b) - parseInt(a))
+              .map(([year, count]) => ({
+                value: parseInt(year),
+                label: year,
+                count,
+                selected: false
+              }))
           }
         ];
-
-        // Add volume facets if available
-        if (facetData.volumes?.length > 0) {
-          facets.push({
-            key: 'volumes',
-            label: 'Volumes',
-            type: 'checkbox',
-            values: facetData.volumes.map((vol: any) => ({
-              value: vol.volume_number,
-              label: `Volume ${vol.volume_number} (${vol.year})`,
-              count: vol.count,
-              selected: volumes.includes(vol.volume_number)
-            }))
-          });
-        }
-
-        // Add issue facets if available
-        if (facetData.issues?.length > 0) {
-          facets.push({
-            key: 'issues',
-            label: 'Issues',
-            type: 'checkbox',
-            values: facetData.issues.map((issue: any) => ({
-              value: issue.issue_number,
-              label: `Issue ${issue.issue_number}`,
-              count: issue.count,
-              selected: issues.includes(issue.issue_number)
-            }))
-          });
-        }
+      } catch (facetError) {
+        console.warn('Failed to generate facets:', facetError);
+        facets = [];
       }
     }
 
     const searchTime = Date.now() - startTime;
-    const total = searchResults?.[0]?.total_count || 0;
+    const total = count || 0;
     const totalPages = Math.ceil(total / limit);
 
     const response = {
@@ -155,15 +174,15 @@ export async function GET(request: NextRequest) {
         id: result.id.toString(),
         title: result.title,
         abstract: result.abstract,
-        authors: result.authors || [],
-        keywords: result.keywords || [],
+        authors: Array.isArray(result.authors) ? result.authors : [],
+        keywords: Array.isArray(result.keywords) ? result.keywords : [],
         published_at: result.published_at,
         volume_id: result.volume_id?.toString(),
         issue_id: result.issue_id?.toString(),
-        article_type: result.article_type,
-        language_code: result.language_code,
+        article_type: result.article_type || 'research_article',
+        language_code: result.language_code || 'en',
         pdf_url: result.pdf_url,
-        rank: result.rank
+        rank: 1.0 // Simple ranking for now
       })) || [],
       facets,
       total,

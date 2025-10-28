@@ -6,15 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
     
-    // Get current authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' }, 
-        { status: 401 }
-      );
-    }
+    // Articles should be publicly accessible, so we don't require authentication
 
     // Get search parameters
     const { searchParams } = new URL(request.url);
@@ -32,7 +24,7 @@ export async function GET(request: NextRequest) {
         authors,
         keywords,
         doi,
-        publication_date,
+        published_at,
         volume_id,
         issue_id,
         page_start,
@@ -46,11 +38,10 @@ export async function GET(request: NextRequest) {
         ),
         issues (
           issue_number,
-          title,
-          publication_date
+          title
         )
       `)
-      .order('publication_date', { ascending: false })
+      .order('published_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (articlesError) {

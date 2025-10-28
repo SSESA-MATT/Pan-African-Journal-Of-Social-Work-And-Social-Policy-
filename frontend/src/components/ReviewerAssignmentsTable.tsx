@@ -1,0 +1,1 @@
+'use client';\n\nimport React, { useState, useEffect } from 'react';\nimport Link from 'next/link';\nimport { \n  Eye, \n  Clock, \n  CheckCircle, \n  AlertTriangle, \n  Calendar,\n  FileText,\n  User,\n  Play,\n  CheckSquare\n} from 'lucide-react';\n\ninterface ReviewerAssignment {\n  id: string;\n  submission_id: string;\n  status: string;\n  assigned_at: string;
