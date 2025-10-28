@@ -338,7 +338,7 @@ export const AdminSubmissionsTable: React.FC<AdminSubmissionsTableProps> = ({
                 <td className="px-6 py-4">
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => {/* TODO: View submission details */}}
+                      onClick={() => window.open(`/manuscripts/${submission.id}`, '_blank')}
                       className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
                       title="View submission"
                     >

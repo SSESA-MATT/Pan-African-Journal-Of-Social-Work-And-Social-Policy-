@@ -281,7 +281,7 @@ export const ReviewerAssignmentsTable: React.FC<ReviewerAssignmentsTableProps> =
                 {/* Actions */}
                 <div className="flex items-center space-x-3">
                   <button
-                    onClick={() => {/* TODO: View submission details */}}
+                    onClick={() => window.open(`/manuscripts/${assignment.submission_id}`, '_blank')}
                     className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
                     <Eye className="w-4 h-4 mr-2" />
