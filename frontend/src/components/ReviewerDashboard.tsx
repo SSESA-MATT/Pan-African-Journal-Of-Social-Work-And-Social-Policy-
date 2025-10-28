@@ -2,11 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from './AuthProvider';
 import { reviewApi } from '../lib/reviewApi';
 import { ReviewerAssignmentsTable } from './reviewer/ReviewerAssignmentsTable';
+import { ReviewerEmptyState } from './reviewer/ReviewerEmptyState';
 import { ReviewerDashboardData, PendingReview, CompletedReview, RECOMMENDATION_LABELS, RECOMMENDATION_COLORS } from '../types/review';
 
 export default function ReviewerDashboard() {
+  const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState<ReviewerDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +57,26 @@ export default function ReviewerDashboard() {
     );
   }
 
-  if (error) {
+  // Check if this is an empty state (no assignments) rather than an error
+  const isEmptyState = error && (
+    error.includes('Failed to load assignments') || 
+    error.includes('No assignments found') ||
+    error.includes('500') ||
+    !dashboardData
+  );
+
+  // Show empty state for new reviewers or when there are no assignments
+  if (isEmptyState && user) {
+    const isFirstTime = !dashboardData || (
+      dashboardData.reviewStats.totalReviews === 0 && 
+      dashboardData.reviewStats.pendingCount === 0
+    );
+    
+    return <ReviewerEmptyState reviewer={user} isFirstTime={isFirstTime} />;
+  }
+
+  // Show error state for actual errors
+  if (error && !isEmptyState) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -72,12 +94,9 @@ export default function ReviewerDashboard() {
     );
   }
 
-  if (!dashboardData) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-gray-600">No dashboard data available</p>
-      </div>
-    );
+  // Show empty state if no dashboard data but user exists
+  if (!dashboardData && user) {
+    return <ReviewerEmptyState reviewer={user} isFirstTime={true} />;
   }
 
   return (

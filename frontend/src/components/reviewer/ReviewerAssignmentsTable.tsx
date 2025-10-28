@@ -218,10 +218,21 @@ export const ReviewerAssignmentsTable: React.FC<ReviewerAssignmentsTableProps> =
 
       {/* Error Display */}
       {error && (
-        <div className="p-4 bg-red-50 border-b border-red-200">
-          <div className="flex items-center">
-            <AlertTriangle className="w-5 h-5 text-red-500 mr-3" />
-            <p className="text-red-800">{error}</p>
+        <div className="p-4 bg-blue-50 border-b border-blue-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <AlertTriangle className="w-5 h-5 text-blue-500 mr-3" />
+              <div>
+                <p className="text-blue-800 font-medium">No assignments available</p>
+                <p className="text-blue-600 text-sm">You haven't been assigned any manuscripts to review yet. New assignments will appear here when available.</p>
+              </div>
+            </div>
+            <button
+              onClick={loadAssignments}
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Refresh
+            </button>
           </div>
         </div>
       )}

@@ -41,6 +41,23 @@ class UserApiService {
   }
 
   async updateUser(id: string, userData: UpdateUserRequest): Promise<ApiResponse<User>> {
+    // Try admin endpoint first, fallback to regular users endpoint
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ userId: id, updates: userData }),
+      });
+      
+      if (response.ok) {
+        const result = await this.handleResponse<{ user: User, message: string }>(response);
+        return { data: result.user, success: true };
+      }
+    } catch (error) {
+      console.log('Admin endpoint failed, trying regular endpoint');
+    }
+
+    // Fallback to regular users endpoint (not implemented yet, but structure for future)
     const response = await fetch(`${API_BASE_URL}/users/${id}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
@@ -50,6 +67,23 @@ class UserApiService {
   }
 
   async updateUserRole(id: string, role: User['role']): Promise<ApiResponse<User>> {
+    // Try admin endpoint first
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ userId: id, updates: { role } }),
+      });
+      
+      if (response.ok) {
+        const result = await this.handleResponse<{ user: User, message: string }>(response);
+        return { data: result.user, success: true };
+      }
+    } catch (error) {
+      console.log('Admin endpoint failed for role update');
+    }
+
+    // Fallback approach
     const response = await fetch(`${API_BASE_URL}/users/${id}/role`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
@@ -78,14 +112,22 @@ class UserApiService {
   }
 
   async getUsersByRole(role: User['role']): Promise<ApiResponse<User[]>> {
-    // The Next.js app provides a dedicated route for reviewers at /api/users/reviewers
-    // while other role endpoints may follow the /api/users/role/:role pattern.
-    const endpoint = role === 'reviewer' ? `${API_BASE_URL}/users/reviewers` : `${API_BASE_URL}/users/role/${role}`;
+    // Use the admin reviewers endpoint for reviewers, and regular users endpoint for others
+    const endpoint = role === 'reviewer' ? `${API_BASE_URL}/admin/reviewers` : `${API_BASE_URL}/users`;
     const response = await fetch(endpoint, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
-    return this.handleResponse<ApiResponse<User[]>>(response);
+    
+    if (role === 'reviewer') {
+      // The admin/reviewers endpoint returns users directly
+      return this.handleResponse<ApiResponse<User[]>>(response);
+    } else {
+      // The users endpoint returns users array directly, filter by role
+      const users = await this.handleResponse<User[]>(response);
+      const filteredUsers = users.filter(user => user.role === role);
+      return { data: filteredUsers, success: true };
+    }
   }
 
   async getUserStats(): Promise<ApiResponse<UserStats>> {
@@ -93,7 +135,10 @@ class UserApiService {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
-    return this.handleResponse<ApiResponse<UserStats>>(response);
+    
+    // The users/stats endpoint returns { statistics: UserStats }
+    const result = await this.handleResponse<{ statistics: UserStats }>(response);
+    return { data: result.statistics, success: true };
   }
 
   async createUser(userData: CreateUserRequest): Promise<ApiResponse<User>> {
@@ -110,7 +155,10 @@ class UserApiService {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
-    return this.handleResponse<ApiResponse<User[]>>(response);
+    
+    // The users/all endpoint returns users array directly
+    const users = await this.handleResponse<User[]>(response);
+    return { data: users, success: true };
   }
 
   async getUserProfile(userId: string): Promise<ApiResponse<User>> {

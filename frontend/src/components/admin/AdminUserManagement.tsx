@@ -62,6 +62,28 @@ export const AdminUserManagement: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
+      // First try to sync users from auth, then load all users
+      try {
+        const syncResponse = await fetch('/api/admin/users', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (syncResponse.ok) {
+          const syncData = await syncResponse.json();
+          if (syncData.users) {
+            setUsers(syncData.users);
+            console.log(`Loaded ${syncData.users.length} users, synced ${syncData.synced} from auth`);
+            return;
+          }
+        }
+      } catch (syncError) {
+        console.log('Sync failed, falling back to regular API:', syncError);
+      }
+
+      // Fallback to regular users API
       const response = await userApi.getAllUsers();
       if (response.data) {
         setUsers(response.data);
