@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { SubmissionOverview } from './admin/SubmissionOverview';
 import { ReviewerAssignmentInterface } from './admin/ReviewerAssignmentInterface';
-import { SubmissionStatusManager } from './admin/SubmissionStatusManager';
+import { AdminSubmissionsTable } from './admin/AdminSubmissionsTable';
 import { AdminUserManagement } from './admin/AdminUserManagement';
 import { UserAnalytics } from './admin/UserAnalytics';
 import { BulkOperations } from './admin/BulkOperations';
@@ -160,7 +160,7 @@ export const AdminDashboard: React.FC = () => {
         {/* Tab Content */}
         <div className="p-4 md:p-6">
           {activeTab === 'overview' && <SubmissionOverview />}
-          {activeTab === 'submissions' && <SubmissionStatusManager />}
+          {activeTab === 'submissions' && <AdminSubmissionsTable />}
           {activeTab === 'reviewers' && <ReviewerAssignmentInterface />}
           {activeTab === 'users' && <AdminUserManagement />}
           {activeTab === 'user-analytics' && <UserAnalytics />}

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { reviewApi } from '../lib/reviewApi';
-import { ReviewerAssignmentTracker } from './ReviewerAssignmentTracker';
+import { ReviewerAssignmentsTable } from './reviewer/ReviewerAssignmentsTable';
 import { ReviewerDashboardData, PendingReview, CompletedReview, RECOMMENDATION_LABELS, RECOMMENDATION_COLORS } from '../types/review';
 
 export default function ReviewerDashboard() {
@@ -175,7 +175,13 @@ export default function ReviewerDashboard() {
         </div>
 
         {/* Content */}
-        {activeTab === 'tracker' && <ReviewerAssignmentTracker />}
+        {activeTab === 'tracker' && (
+          <ReviewerAssignmentsTable 
+            onStartReview={(assignment) => {
+              router.push(`/reviewer/review/${assignment.submission_id}`);
+            }}
+          />
+        )}
         
         {activeTab === 'pending' && (
           <div className="space-y-4">
