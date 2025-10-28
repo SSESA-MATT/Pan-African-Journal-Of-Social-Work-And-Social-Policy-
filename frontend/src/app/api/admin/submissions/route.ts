@@ -1,120 +1,244 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
-// Use service role key for admin operations (bypasses RLS) - fallback to regular client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
 
-const supabaseAdmin = supabaseServiceKey ? 
-  createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }) : null;
+// Add CORS headers
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: corsHeaders() });
+}
 
 export async function GET(request: NextRequest) {
+  console.log('=== GET /api/admin/submissions request started ===');
+  
   try {
-    console.log('=== ADMIN SUBMISSIONS API ===');
-    
-    // Use cookie-based auth for production compatibility
     const supabase = createRouteHandlerClient({ cookies });
     
-    // Get the current user
+    // Get the current user session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session?.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' }, 
-        { status: 401 }
-      );
+
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401, headers: corsHeaders() });
     }
 
-    console.log('User authenticated:', session.user.email);
+    const userId = session.user.id;
 
-    // Check user role - use admin client if available, otherwise regular client
-    const clientToUse = supabaseAdmin || supabase;
-    const { data: userProfile, error: profileError } = await clientToUse
+    // Check if user is admin or editor
+    const { data: userProfile, error: profileError } = await supabase
       .from('users')
       .select('role')
-      .eq('id', session.user.id)
+      .eq('id', userId)
       .single();
 
-    if (profileError || !userProfile) {
-      console.error('Profile error:', profileError);
-      return NextResponse.json(
-        { error: 'User profile not found' }, 
-        { status: 404 }
-      );
+    if (profileError || !userProfile || !['admin', 'editor'].includes(userProfile.role)) {
+      return NextResponse.json({ 
+        error: 'Insufficient permissions. Admin or editor role required.' 
+      }, { status: 403, headers: corsHeaders() });
     }
 
-    if (!['admin', 'editor'].includes(userProfile.role)) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions' }, 
-        { status: 403 }
-      );
-    }
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status');
+    const limit = parseInt(url.searchParams.get('limit') || '50');
+    const offset = parseInt(url.searchParams.get('offset') || '0');
 
-    console.log('User role verified:', userProfile.role);
-
-    // Get submissions using appropriate client (select safe fields)
-    const { data: submissions, error: submissionsError } = await clientToUse
+    // Build query
+    let query = supabase
       .from('submissions')
       .select(`
-        id,
-        title,
-        abstract,
-        status,
-        author_id,
-        submission_date,
-        created_at,
-        updated_at
+        *,
+        author:users!author_id(id, email, first_name, last_name),
+        reviewer_assignments(
+          id,
+          status,
+          assigned_at,
+          due_date,
+          reviewer:users!reviewer_id(id, email, first_name, last_name)
+        ),
+        reviews(
+          id,
+          status,
+          recommendation,
+          submitted_at,
+          reviewer:users!reviewer_id(id, email, first_name, last_name)
+        )
       `)
       .order('created_at', { ascending: false });
 
-    if (submissionsError) {
-      console.error('Submissions error:', submissionsError);
-      return NextResponse.json(
-        { error: 'Failed to fetch submissions', details: submissionsError.message }, 
-        { status: 500 }
-      );
+    // Apply status filter if provided
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
     }
 
-    // Enrich with author profiles when possible
-    try {
-      const authorIds = Array.from(new Set((submissions || []).map((s: any) => s.author_id).filter(Boolean)));
-      if (authorIds.length > 0) {
-        const { data: usersData, error: usersError } = await clientToUse
-          .from('users')
-          .select('id, first_name, last_name, email, affiliation')
-          .in('id', authorIds);
-        if (!usersError && usersData) {
-          const usersById = (usersData || []).reduce((acc: any, u: any) => { acc[u.id] = u; return acc; }, {} as Record<string, any>);
-          const enriched = (submissions || []).map((s: any) => ({
-            ...s,
-            author_first_name: usersById[s.author_id]?.first_name || null,
-            author_last_name: usersById[s.author_id]?.last_name || null,
-            author_email: usersById[s.author_id]?.email || null,
-            author_affiliation: usersById[s.author_id]?.affiliation || null,
-          }));
-          console.log('Found submissions:', enriched.length || 0);
-          return NextResponse.json({ submissions: enriched || [] });
-        }
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: submissions, error } = await query;
+
+    if (error) {
+      console.error('Database error:', error);
+      return NextResponse.json({ error: 'Failed to fetch submissions' }, { status: 500, headers: corsHeaders() });
+    }
+
+    // Get total count for pagination
+    let countQuery = supabase
+      .from('submissions')
+      .select('id', { count: 'exact', head: true });
+
+    if (status && status !== 'all') {
+      countQuery = countQuery.eq('status', status);
+    }
+
+    const { count, error: countError } = await countQuery;
+
+    if (countError) {
+      console.error('Count error:', countError);
+    }
+
+    // Enhance submissions with additional computed fields
+    const enhancedSubmissions = (submissions || []).map(submission => {
+      const reviewerAssignments = submission.reviewer_assignments || [];
+      const reviews = submission.reviews || [];
+      
+      return {
+        ...submission,
+        author_name: submission.author ? 
+          `${submission.author.first_name || ''} ${submission.author.last_name || ''}`.trim() || submission.author.email :
+          'Unknown Author',
+        author_email: submission.author?.email || '',
+        assigned_reviewers: reviewerAssignments.length,
+        completed_reviews: reviews.filter((r: any) => r.status === 'completed').length,
+        pending_reviews: reviewerAssignments.filter((a: any) => a.status === 'assigned').length,
+        overdue_reviews: reviewerAssignments.filter((a: any) => 
+          a.status === 'assigned' && a.due_date && new Date(a.due_date) < new Date()
+        ).length,
+        days_since_submission: Math.floor(
+          (new Date().getTime() - new Date(submission.created_at).getTime()) / (1000 * 60 * 60 * 24)
+        ),
+        can_assign_reviewers: ['submitted', 'under_review'].includes(submission.status),
+        needs_decision: reviews.length > 0 && reviews.every((r: any) => r.status === 'completed')
+      };
+    });
+
+    console.log(`Found ${enhancedSubmissions.length} submissions (total: ${count})`);
+
+    return NextResponse.json({
+      submissions: enhancedSubmissions,
+      pagination: {
+        total: count || 0,
+        limit,
+        offset,
+        hasMore: (count || 0) > offset + limit
       }
-    } catch (e) {
-      console.warn('Failed to enrich admin submissions with authors:', e);
+    }, { headers: corsHeaders() });
+
+  } catch (error: any) {
+    console.error('GET admin submissions error:', error);
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500, headers: corsHeaders() });
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  console.log('=== PUT /api/admin/submissions request started ===');
+  
+  try {
+    const supabase = createRouteHandlerClient({ cookies });
+    
+    // Get the current user session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401, headers: corsHeaders() });
     }
 
-  console.log('Found submissions:', submissions?.length || 0);
-  return NextResponse.json({ submissions: submissions || [] });
+    const userId = session.user.id;
 
-  } catch (error) {
-    console.error('Admin submissions API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' }, 
-      { status: 500 }
-    );
+    // Check if user is admin or editor
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !userProfile || !['admin', 'editor'].includes(userProfile.role)) {
+      return NextResponse.json({ 
+        error: 'Insufficient permissions' 
+      }, { status: 403, headers: corsHeaders() });
+    }
+
+    const jsonData = await request.json();
+    const { submissionId, status, decision, comments } = jsonData;
+
+    if (!submissionId || !status) {
+      return NextResponse.json({ 
+        error: 'Missing required fields: submissionId and status are required' 
+      }, { status: 400, headers: corsHeaders() });
+    }
+
+    // Validate status
+    const validStatuses = [
+      'submitted', 'under_review', 'assigned_for_review', 
+      'accepted', 'rejected', 'revision_requested', 'published'
+    ];
+
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json({ 
+        error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
+      }, { status: 400, headers: corsHeaders() });
+    }
+
+    // Update submission
+    const updateData: any = {
+      status,
+      updated_at: new Date().toISOString()
+    };
+
+    if (decision) {
+      updateData.editorial_decision = decision;
+    }
+
+    if (comments) {
+      updateData.editorial_comments = comments;
+    }
+
+    const { data: updatedSubmission, error: updateError } = await supabase
+      .from('submissions')
+      .update(updateData)
+      .eq('id', submissionId)
+      .select(`
+        *,
+        author:users!author_id(id, email, first_name, last_name)
+      `)
+      .single();
+
+    if (updateError) {
+      console.error('Update error:', updateError);
+      return NextResponse.json({ 
+        error: 'Failed to update submission' 
+      }, { status: 500, headers: corsHeaders() });
+    }
+
+    // TODO: Send notification email to author about status change
+
+    console.log(`Successfully updated submission ${submissionId} to status: ${status}`);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Submission updated successfully',
+      submission: updatedSubmission
+    }, { headers: corsHeaders() });
+
+  } catch (error: any) {
+    console.error('PUT admin submissions error:', error);
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500, headers: corsHeaders() });
   }
 }
