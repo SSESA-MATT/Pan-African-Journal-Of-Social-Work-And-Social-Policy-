@@ -91,15 +91,28 @@ export const AdminSubmissionsTable: React.FC<AdminSubmissionsTableProps> = ({
       const response = await fetch(`/api/admin/submissions?${params}`);
       
       if (!response.ok) {
-        throw new Error('Failed to load submissions');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.details || errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+        
+        // Provide helpful error messages based on the error type
+        if (response.status === 401) {
+          throw new Error('Authentication required. Please log in as an admin or editor.');
+        } else if (response.status === 403) {
+          throw new Error('Insufficient permissions. Admin or editor role required.');
+        } else if (errorData.error === 'Database not initialized') {
+          throw new Error('Database not initialized. Please run database migrations or contact system administrator.');
+        } else {
+          throw new Error(errorMessage);
+        }
       }
 
       const data = await response.json();
       setSubmissions(data.submissions || []);
-      setTotalSubmissions(data.pagination.total);
-      setTotalPages(Math.ceil(data.pagination.total / itemsPerPage));
+      setTotalSubmissions(data.pagination?.total || 0);
+      setTotalPages(Math.ceil((data.pagination?.total || 0) / itemsPerPage));
 
     } catch (err) {
+      console.error('Failed to load submissions:', err);
       setError(err instanceof Error ? err.message : 'Failed to load submissions');
     } finally {
       setLoading(false);
@@ -226,9 +239,17 @@ export const AdminSubmissionsTable: React.FC<AdminSubmissionsTableProps> = ({
       {/* Error Display */}
       {error && (
         <div className="p-4 bg-red-50 border-b border-red-200">
-          <div className="flex items-center">
-            <AlertTriangle className="w-5 h-5 text-red-500 mr-3" />
-            <p className="text-red-800">{error}</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <AlertTriangle className="w-5 h-5 text-red-500 mr-3" />
+              <p className="text-red-800">{error}</p>
+            </div>
+            <button
+              onClick={loadSubmissions}
+              className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded text-sm font-medium transition-colors"
+            >
+              Retry
+            </button>
           </div>
         </div>
       )}
