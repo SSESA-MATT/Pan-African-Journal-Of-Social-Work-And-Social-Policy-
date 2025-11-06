@@ -39,6 +39,8 @@ describe('DOIService', () => {
   beforeEach(() => {
     doiService = new DOIService(mockConfig);
     jest.clearAllMocks();
+    // Ensure axios.isAxiosError helper is available for tests where axios is mocked
+    mockedAxios.isAxiosError = jest.fn((err: any) => Boolean(err && (err as any).isAxiosError)) as any;
   });
 
   describe('generateDOI', () => {
@@ -79,8 +81,9 @@ describe('DOIService', () => {
     it('should reject invalid year', () => {
       const result = doiService.validateDOI('10.5555/pajswsp.1999.01.02.005');
       
+      const upper = new Date().getFullYear() + 1;
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Invalid year: 1999. Must be between 2000 and 2025');
+      expect(result.errors).toContain(`Invalid year: 1999. Must be between 2000 and ${upper}`);
     });
 
     it('should reject invalid volume', () => {

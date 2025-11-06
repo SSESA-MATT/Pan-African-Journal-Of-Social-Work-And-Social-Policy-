@@ -119,7 +119,7 @@ RETURNS TABLE (
     abstract TEXT,
     authors TEXT,
     keywords TEXT,
-    publication_date DATE,
+    published_at TIMESTAMP WITH TIME ZONE,
     article_type VARCHAR(50),
     language VARCHAR(10),
     volume INTEGER,
@@ -160,8 +160,8 @@ BEGIN
                 ts_rank(
                     setweight(to_tsvector('english', COALESCE(a.title, '')), 'A') ||
                     setweight(to_tsvector('english', COALESCE(a.abstract, '')), 'B') ||
-                    setweight(to_tsvector('english', COALESCE(a.keywords, '')), 'C') ||
-                    setweight(to_tsvector('english', COALESCE(a.authors, '')), 'D'),
+                    setweight(to_tsvector('english', COALESCE(a.keywords::text, '')), 'C') ||
+                    setweight(to_tsvector('english', COALESCE(a.authors::text, '')), 'D'),
                     plainto_tsquery('english', search_query)
                 )
             ELSE 0.0
@@ -171,12 +171,12 @@ BEGIN
         (search_query IS NULL OR (
             to_tsvector('english', COALESCE(a.title, '')) @@ plainto_tsquery('english', search_query) OR
             to_tsvector('english', COALESCE(a.abstract, '')) @@ plainto_tsquery('english', search_query) OR
-            to_tsvector('english', COALESCE(a.keywords, '')) @@ plainto_tsquery('english', search_query) OR
-            to_tsvector('english', COALESCE(a.authors, '')) @@ plainto_tsquery('english', search_query)
+            to_tsvector('english', COALESCE(a.keywords::text, '')) @@ plainto_tsquery('english', search_query) OR
+            to_tsvector('english', COALESCE(a.authors::text, '')) @@ plainto_tsquery('english', search_query)
         ))
         AND (article_types IS NULL OR a.article_type = ANY(article_types))
         AND (languages IS NULL OR a.language = ANY(languages))
-        AND (years IS NULL OR EXTRACT(YEAR FROM a.publication_date) = ANY(years))
+    AND (years IS NULL OR EXTRACT(YEAR FROM a.published_at) = ANY(years))
         AND (volumes IS NULL OR a.volume = ANY(volumes))
         AND (issues IS NULL OR a.issue = ANY(issues))
         AND (authors_filter IS NULL OR EXISTS (
@@ -197,21 +197,21 @@ BEGIN
                 ts_rank(
                     setweight(to_tsvector('english', COALESCE(a.title, '')), 'A') ||
                     setweight(to_tsvector('english', COALESCE(a.abstract, '')), 'B') ||
-                    setweight(to_tsvector('english', COALESCE(a.keywords, '')), 'C') ||
-                    setweight(to_tsvector('english', COALESCE(a.authors, '')), 'D'),
+                    setweight(to_tsvector('english', COALESCE(a.keywords::text, '')), 'C') ||
+                    setweight(to_tsvector('english', COALESCE(a.authors::text, '')), 'D'),
                     plainto_tsquery('english', search_query)
                 )
             ELSE 0
         END DESC,
-        CASE WHEN sort_by = 'date' AND sort_order = 'desc' THEN a.publication_date END DESC,
-        CASE WHEN sort_by = 'date' AND sort_order = 'asc' THEN a.publication_date END ASC,
+    CASE WHEN sort_by = 'date' AND sort_order = 'desc' THEN a.published_at END DESC,
+    CASE WHEN sort_by = 'date' AND sort_order = 'asc' THEN a.published_at END ASC,
         CASE WHEN sort_by = 'title' AND sort_order = 'desc' THEN a.title END DESC,
         CASE WHEN sort_by = 'title' AND sort_order = 'asc' THEN a.title END ASC,
         CASE WHEN sort_by = 'citations' AND sort_order = 'desc' THEN a.citation_count END DESC,
         CASE WHEN sort_by = 'citations' AND sort_order = 'asc' THEN a.citation_count END ASC,
         CASE WHEN sort_by = 'views' AND sort_order = 'desc' THEN a.view_count END DESC,
         CASE WHEN sort_by = 'views' AND sort_order = 'asc' THEN a.view_count END ASC,
-        a.publication_date DESC
+    a.published_at DESC
     LIMIT page_limit OFFSET page_offset;
 END;
 $$ LANGUAGE plpgsql;
@@ -296,9 +296,10 @@ $$ LANGUAGE plpgsql;
 -- =============================================================================
 
 -- Create DOI registrations table
+-- NOTE: articles.id is a UUID in the base schema; use UUID for the FK to avoid type mismatch
 CREATE TABLE IF NOT EXISTS doi_registrations (
     id SERIAL PRIMARY KEY,
-    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    article_id UUID NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
     doi VARCHAR(255) NOT NULL UNIQUE,
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
     registration_date TIMESTAMP,
@@ -309,7 +310,7 @@ CREATE TABLE IF NOT EXISTS doi_registrations (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
-    CONSTRAINT valid_doi_format CHECK (doi ~ '^10\.\d{4,}/pajswsp\.\d{4}\.\d{2}\.\d{2}\.\d{3}$'),
+    CONSTRAINT valid_doi_format CHECK (doi ~ '^10\\.\d{4,}/pajswsp\\.\d{4}\\.\d{2}\\.\d{2}\\.\d{3}$'),
     CONSTRAINT valid_status CHECK (status IN ('pending', 'registered', 'failed', 'updating'))
 );
 
@@ -355,7 +356,7 @@ CREATE INDEX IF NOT EXISTS idx_articles_article_type ON articles(article_type);
 CREATE INDEX IF NOT EXISTS idx_articles_language ON articles(language);
 CREATE INDEX IF NOT EXISTS idx_articles_volume ON articles(volume);
 CREATE INDEX IF NOT EXISTS idx_articles_issue ON articles(issue);
-CREATE INDEX IF NOT EXISTS idx_articles_publication_date ON articles(publication_date);
+CREATE INDEX IF NOT EXISTS idx_articles_published_at ON articles(published_at);
 CREATE INDEX IF NOT EXISTS idx_articles_citation_count ON articles(citation_count);
 CREATE INDEX IF NOT EXISTS idx_articles_view_count ON articles(view_count);
 CREATE INDEX IF NOT EXISTS idx_articles_is_open_access ON articles(is_open_access);
@@ -369,7 +370,7 @@ CREATE INDEX IF NOT EXISTS idx_articles_doi_status ON articles(doi_status);
 CREATE INDEX IF NOT EXISTS idx_articles_search_vector ON articles USING gin(search_vector);
 
 -- Create composite indexes for common queries
-CREATE INDEX IF NOT EXISTS idx_articles_status_date ON articles(status, publication_date DESC);
+CREATE INDEX IF NOT EXISTS idx_articles_status_date ON articles(status, published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_articles_type_status ON articles(article_type, status);
 CREATE INDEX IF NOT EXISTS idx_articles_featured_status ON articles(featured, status) WHERE featured = true;
 
@@ -457,8 +458,8 @@ BEGIN
     NEW.search_vector := 
         setweight(to_tsvector('english', COALESCE(NEW.title, '')), 'A') ||
         setweight(to_tsvector('english', COALESCE(NEW.abstract, '')), 'B') ||
-        setweight(to_tsvector('english', COALESCE(NEW.keywords, '')), 'C') ||
-        setweight(to_tsvector('english', COALESCE(NEW.authors, '')), 'D');
+        setweight(to_tsvector('english', COALESCE(NEW.keywords::text, '')), 'C') ||
+        setweight(to_tsvector('english', COALESCE(NEW.authors::text, '')), 'D');
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -479,8 +480,8 @@ UPDATE articles
 SET search_vector = 
     setweight(to_tsvector('english', COALESCE(title, '')), 'A') ||
     setweight(to_tsvector('english', COALESCE(abstract, '')), 'B') ||
-    setweight(to_tsvector('english', COALESCE(keywords, '')), 'C') ||
-    setweight(to_tsvector('english', COALESCE(authors, '')), 'D')
+    setweight(to_tsvector('english', COALESCE(keywords::text, '')), 'C') ||
+    setweight(to_tsvector('english', COALESCE(authors::text, '')), 'D')
 WHERE search_vector IS NULL;
 
 -- Set default values for new columns where needed
@@ -505,7 +506,7 @@ SELECT
     a.title,
     a.doi,
     a.doi_status,
-    a.publication_date,
+    a.published_at,
     a.volume,
     a.issue,
     dr.id as registration_id,

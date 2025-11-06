@@ -72,7 +72,8 @@ router.get('/search', submissionController.searchSubmissions);
  * @desc Get accepted submissions ready for publication (admin/editor only)
  * @access Private (Admin/Editor)
  */
-router.get('/accepted', submissionController.getAcceptedSubmissions);
+// TODO: Implement getAcceptedSubmissions method in SubmissionController
+// router.get('/accepted', submissionController.getAcceptedSubmissions);
 
 /**
  * @route GET /api/submissions/:id

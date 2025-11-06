@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
 import { DOIManager, ArticleData } from '../utils/doiManager';
-import { EmailService } from './EmailService';
+// import { EmailService } from './EmailService';
 import { getEmailConfig } from '../config/doi';
 
 export interface WorkflowTrigger {
@@ -478,3 +478,4 @@ export class DOIWorkflowService {
       console.error('Failed to load pending workflows:', error);
     }
   }
+}

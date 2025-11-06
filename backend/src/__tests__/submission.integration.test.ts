@@ -19,16 +19,16 @@ const mockHandleUploadError = handleUploadError as jest.MockedFunction<typeof ha
 const mockValidateUploadedFile = validateUploadedFile as jest.MockedFunction<typeof validateUploadedFile>;
 
 // Setup middleware mocks
-mockAuthenticate.mockImplementation((req, res, next) => {
+mockAuthenticate.mockImplementation(((req: any, res: any, next: any) => {
   req.user = {
     userId: 'test-user-id',
     email: 'test@example.com',
     role: 'author'
   };
   next();
-});
+}) as any);
 
-mockUploadSingle.mockImplementation((req, res, next) => {
+mockUploadSingle.mockImplementation(((req: any, res: any, next: any) => {
   req.file = {
     fieldname: 'manuscript',
     originalname: 'test.pdf',
@@ -38,15 +38,15 @@ mockUploadSingle.mockImplementation((req, res, next) => {
     size: 1024
   } as Express.Multer.File;
   next();
-});
+}) as any);
 
-mockHandleUploadError.mockImplementation((error, req, res, next) => {
+mockHandleUploadError.mockImplementation(((error: any, req: any, res: any, next: any) => {
   next();
-});
+}) as any);
 
-mockValidateUploadedFile.mockImplementation((req, res, next) => {
+mockValidateUploadedFile.mockImplementation(((req: any, res: any, next: any) => {
   next();
-});
+}) as any);
 
 const submissionController = new SubmissionController();
 
@@ -104,7 +104,8 @@ describe('Submission API Integration', () => {
 
 describe('Submission Validation', () => {
   it('should validate submission data correctly', () => {
-    const { SubmissionService } = require('../services/SubmissionService');
+    // Use the actual implementation for validation (not the mocked service)
+    const { SubmissionService } = jest.requireActual('../services/SubmissionService');
     const service = new SubmissionService();
 
     const validData = {

@@ -1,4 +1,4 @@
-import axios, { AxiosResponse } from 'axios';
+import axios from 'axios';
 import { z } from 'zod';
 
 // DOI validation schema
@@ -219,6 +219,7 @@ export class DOIService {
 
       return result;
     } catch (error) {
+      result.errors = result.errors || [];
       result.errors.push(`Registration error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       result.message = 'Unexpected error during DOI registration';
       return result;

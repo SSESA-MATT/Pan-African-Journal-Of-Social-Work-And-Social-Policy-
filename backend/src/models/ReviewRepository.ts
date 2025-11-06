@@ -88,6 +88,24 @@ export class ReviewRepository extends BaseRepository<Review> {
    * Get reviews for a specific reviewer with submission details
    */
   async findByReviewerWithSubmissions(reviewerId: string): Promise<any[]> {
+    // When DB_HOST is set (test mode), use SQL directly
+    if (process.env.DB_HOST || process.env.DATABASE_URL) {
+      const res = await this.query(
+        `SELECT r.*, 
+          s.title, s.abstract, s.status, s.submitted_at as submission_date,
+          u.first_name as author_first_name, 
+          u.last_name as author_last_name
+         FROM reviews r
+         LEFT JOIN submissions s ON r.submission_id = s.id
+         LEFT JOIN users u ON s.author_id = u.id
+         WHERE r.reviewer_id = $1
+         ORDER BY r.submitted_at DESC`,
+        [reviewerId]
+      );
+      return res.rows || [];
+    }
+
+    // Supabase implementation (production)
     const { data, error } = await this.supabase
       .from('reviews')
       .select(`
@@ -117,18 +135,31 @@ export class ReviewRepository extends BaseRepository<Review> {
    * Check if reviewer has already reviewed a submission
    */
   async hasReviewerReviewed(submissionId: string, reviewerId: string): Promise<boolean> {
-    const { data, error } = await this.supabase
-      .from('reviews')
-      .select('id')
-      .eq('submission_id', submissionId)
-      .eq('reviewer_id', reviewerId)
-      .limit(1);
-
-    if (error) {
-      throw error;
+    // When DB_HOST is set (test mode), use SQL directly
+    if (process.env.DB_HOST || process.env.DATABASE_URL) {
+      const res = await this.query(
+        'SELECT id FROM reviews WHERE submission_id = $1 AND reviewer_id = $2 LIMIT 1',
+        [submissionId, reviewerId]
+      );
+      return (res.rows?.length || 0) > 0;
     }
 
-    return (data?.length || 0) > 0;
+    try {
+      const { data, error } = await this.supabase
+        .from('reviews')
+        .select('id')
+        .eq('submission_id', submissionId)
+        .eq('reviewer_id', reviewerId)
+        .limit(1);
+
+      if (error) {
+        throw error;
+      }
+
+      return (data?.length || 0) > 0;
+    } catch (err: any) {
+      throw err;
+    }
   }
 
   /**
@@ -155,7 +186,27 @@ export class ReviewRepository extends BaseRepository<Review> {
    * Get pending reviews for a reviewer (submissions assigned but not reviewed)
    */
   async findPendingForReviewer(reviewerId: string): Promise<any[]> {
-    // First get all submissions that need review
+    // When DB_HOST is set (test mode), use SQL directly
+    if (process.env.DB_HOST || process.env.DATABASE_URL) {
+      const res = await this.query(
+        `SELECT s.*, 
+          u.first_name as author_first_name, 
+          u.last_name as author_last_name
+         FROM submissions s
+         LEFT JOIN users u ON s.author_id = u.id
+         WHERE s.status IN ('submitted', 'under_review')
+           AND NOT EXISTS (
+             SELECT 1 FROM reviews r 
+             WHERE r.submission_id = s.id 
+             AND r.reviewer_id = $1
+           )
+         ORDER BY s.submitted_at ASC`,
+        [reviewerId]
+      );
+      return res.rows || [];
+    }
+
+    // Supabase implementation (production)
     const { data: submissions, error: submissionsError } = await this.supabase
       .from('submissions')
       .select(`

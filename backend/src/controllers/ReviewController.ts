@@ -266,6 +266,8 @@ export class ReviewController {
 
       res.json({
         message: 'Reviewer assigned successfully',
+        reviewer: assignmentResult.reviewer,
+        submission: assignmentResult.submission
       });
     } catch (error: any) {
       console.error('Error assigning reviewer:', error);

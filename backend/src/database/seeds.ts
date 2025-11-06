@@ -133,42 +133,25 @@ export class DatabaseSeeder {
    */
   private async seedIssues(): Promise<void> {
     console.log('📖 Seeding issues...');
-
-    // Get volume IDs
-    const volumeResult = await this.pool.query('SELECT id, volume_number FROM volumes ORDER BY volume_number');
-    const volumes = volumeResult.rows;
-
-    if (volumes.length === 0) {
-      console.log('⚠️  No volumes found, skipping issue seeding');
-      return;
-    }
-
-    const issues = [
-      {
-        issue_number: 1,
-        volume_id: volumes[0].id,
-        description: 'Indigenous Knowledge Systems in Social Work Practice'
-      },
-      {
-        issue_number: 2,
-        volume_id: volumes[0].id,
-        description: 'Community-Based Social Work Interventions'
-      },
-      {
-        issue_number: 1,
-        volume_id: volumes[1]?.id,
-        description: 'Policy Frameworks for Social Justice'
-      }
+    // Lookup volumes by their volume_number to get stable IDs
+    const issuesSpec = [
+      { issue_number: 1, volume_number: 1, description: 'Indigenous Knowledge Systems in Social Work Practice' },
+      { issue_number: 2, volume_number: 1, description: 'Community-Based Social Work Interventions' },
+      { issue_number: 1, volume_number: 2, description: 'Policy Frameworks for Social Justice' }
     ];
 
-    for (const issue of issues) {
-      if (issue.volume_id) {
-        await this.pool.query(`
-          INSERT INTO issues (issue_number, volume_id, description)
-          VALUES ($1, $2, $3)
-          ON CONFLICT (volume_id, issue_number) DO NOTHING
-        `, [issue.issue_number, issue.volume_id, issue.description]);
+    for (const spec of issuesSpec) {
+      const volRes = await this.pool.query('SELECT id FROM volumes WHERE volume_number = $1 LIMIT 1', [spec.volume_number]);
+      if (!volRes.rows || volRes.rows.length === 0) {
+        console.log(`⚠️  No volume found for volume_number=${spec.volume_number}, skipping issue ${spec.issue_number}`);
+        continue;
       }
+      const volumeId = volRes.rows[0].id;
+      await this.pool.query(`
+        INSERT INTO issues (issue_number, volume_id, description)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (volume_id, issue_number) DO NOTHING
+      `, [spec.issue_number, volumeId, spec.description]);
     }
 
     console.log('✅ Issues seeded successfully');
@@ -234,7 +217,18 @@ export class DatabaseSeeder {
     const tables = ['articles', 'reviews', 'submissions', 'issues', 'volumes', 'users'];
     
     for (const table of tables) {
-      await this.pool.query(`TRUNCATE TABLE ${table} RESTART IDENTITY CASCADE`);
+      try {
+        // Check if table exists in the current search_path/schema
+        const existsRes = await this.pool.query(`SELECT to_regclass($1) AS exists`, [table]);
+        const exists = existsRes.rows && existsRes.rows[0] && existsRes.rows[0].exists;
+        if (exists) {
+          await this.pool.query(`TRUNCATE TABLE ${table} RESTART IDENTITY CASCADE`);
+        } else {
+          console.log(`⚠️  Table ${table} does not exist in DB, skipping`);
+        }
+      } catch (err) {
+        console.warn(`Failed to clear table ${table}:`, err);
+      }
     }
 
     console.log('✅ Database cleared successfully');

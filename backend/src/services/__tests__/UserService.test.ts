@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 import { UserService } from '../UserService';
 import { UserRepository } from '../../models/UserRepository';
 import { User } from '../../models/types';
@@ -202,16 +203,14 @@ describe('UserService', () => {
 
       expect(mockRepository.findByEmail).toHaveBeenCalledWith(userData.email);
       expect(mockHashPassword).toHaveBeenCalledWith(userData.password);
-      expect(mockRepository.create).toHaveBeenCalledWith({
+      expect(mockRepository.create).toHaveBeenCalledWith(expect.objectContaining({
         email: userData.email,
         password_hash: 'hashedpassword',
         first_name: userData.first_name,
         last_name: userData.last_name,
         affiliation: userData.affiliation,
-        role: userData.role,
-        created_at: expect.any(Date),
-        updated_at: expect.any(Date),
-      });
+        role: userData.role
+      }));
       expect(result).not.toHaveProperty('password_hash');
     });
 

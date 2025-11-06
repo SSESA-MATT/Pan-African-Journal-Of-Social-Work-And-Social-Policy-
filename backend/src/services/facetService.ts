@@ -152,8 +152,9 @@ export class FacetService {
         count: parseInt(row.count)
       }))
     };
-  }  priv
-ate async generateLanguagesFacet(
+  }
+
+  private async generateLanguagesFacet(
     baseWhere: string, 
     baseParams: any[], 
     filters: FacetFilters

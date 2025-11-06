@@ -152,49 +152,86 @@ export class ManuscriptRepository extends BaseRepository<Manuscript> {
   }
 
   async assignReviewer(manuscriptId: string, reviewerId: string): Promise<void> {
-    // Check if reviewer is already assigned
-    const { data: existing } = await this.supabase
-      .from('manuscript_reviews')
-      .select('id')
-      .eq('manuscript_id', manuscriptId)
-      .eq('reviewer_id', reviewerId)
-      .single();
-    
-    if (existing) {
-      throw new Error('Reviewer already assigned to this manuscript');
+    // When DB_HOST is set (test mode), use SQL directly
+    if (process.env.DB_HOST || process.env.DATABASE_URL) {
+      // Check existing assignment
+      const existingRes = await this.query(
+        'SELECT id FROM manuscript_reviews WHERE manuscript_id = $1 AND reviewer_id = $2 LIMIT 1',
+        [manuscriptId, reviewerId]
+      );
+      if ((existingRes.rows?.length || 0) > 0) {
+        throw new Error('Reviewer already assigned to this manuscript');
+      }
+
+      // Insert assignment
+      const dueDate = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString();
+      const now = new Date().toISOString();
+      await this.query(
+        `INSERT INTO manuscript_reviews (manuscript_id, reviewer_id, status, due_date, created_at, updated_at)
+         VALUES ($1, $2, 'assigned', $3, $4, $4)`,
+        [manuscriptId, reviewerId, dueDate, now]
+      );
+
+      // Update manuscript status if needed
+      const mRes = await this.query('SELECT status FROM manuscripts WHERE id = $1 LIMIT 1', [manuscriptId]);
+      const status = mRes.rows?.[0]?.status;
+      if (status === 'submitted') {
+        await this.query(
+          'UPDATE manuscripts SET status = $1, last_updated = $2 WHERE id = $3',
+          ['under-review', now, manuscriptId]
+        );
+      }
+      return;
     }
 
-    // Create new review assignment
-    const { error: insertError } = await this.supabase
-      .from('manuscript_reviews')
-      .insert({
-        manuscript_id: manuscriptId,
-        reviewer_id: reviewerId,
-        status: 'assigned',
-        due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(), // 21 days from now
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
-    
-    if (insertError) {
-      throw insertError;
-    }
+    // Use Supabase for production
+    try {
+      // Check if reviewer is already assigned
+      const { data: existing } = await this.supabase
+        .from('manuscript_reviews')
+        .select('id')
+        .eq('manuscript_id', manuscriptId)
+        .eq('reviewer_id', reviewerId)
+        .single();
 
-    // Update manuscript status to under-review if it's submitted
-    const { data: manuscript } = await this.supabase
-      .from('manuscripts')
-      .select('status')
-      .eq('id', manuscriptId)
-      .single();
+      if (existing) {
+        throw new Error('Reviewer already assigned to this manuscript');
+      }
 
-    if (manuscript?.status === 'submitted') {
-      await this.supabase
+      // Create new review assignment
+      const { error: insertError } = await this.supabase
+        .from('manuscript_reviews')
+        .insert({
+          manuscript_id: manuscriptId,
+          reviewer_id: reviewerId,
+          status: 'assigned',
+          due_date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(), // 21 days from now
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      // Update manuscript status to under-review if it's submitted
+      const { data: manuscript } = await this.supabase
         .from('manuscripts')
-        .update({ 
-          status: 'under-review',
-          last_updated: new Date().toISOString()
-        })
-        .eq('id', manuscriptId);
+        .select('status')
+        .eq('id', manuscriptId)
+        .single();
+
+      if (manuscript?.status === 'submitted') {
+        await this.supabase
+          .from('manuscripts')
+          .update({ 
+            status: 'under-review',
+            last_updated: new Date().toISOString()
+          })
+          .eq('id', manuscriptId);
+      }
+    } catch (err: any) {
+      throw err;
     }
   }
 
@@ -217,6 +254,22 @@ export class ManuscriptRepository extends BaseRepository<Manuscript> {
   }
 
   async findByReviewerId(reviewerId: string): Promise<Manuscript[]> {
+    // When DB_HOST is set (test mode), use SQL directly
+    if (process.env.DB_HOST || process.env.DATABASE_URL) {
+      const res = await this.query(
+        `SELECT m.*, 
+          mr.id as review_id, mr.status as review_status, 
+          mr.due_date, mr.recommendation
+         FROM manuscripts m
+         INNER JOIN manuscript_reviews mr ON m.id = mr.manuscript_id
+         WHERE mr.reviewer_id = $1
+         ORDER BY mr.due_date ASC`,
+        [reviewerId]
+      );
+      return (res.rows || []).map(row => this.mapRowToEntity(row));
+    }
+
+    // Supabase implementation (production)
     const { data, error } = await this.supabase
       .from('manuscripts')
       .select(`

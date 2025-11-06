@@ -1,46 +1,61 @@
+/// <reference types="jest" />
 import request from 'supertest';
 import express from 'express';
-import { ReviewService } from '../services/ReviewService';
-import { ReviewController } from '../controllers/ReviewController';
-import reviewRoutes from '../routes/reviews';
 import { authenticate } from '../middleware/auth';
 
-// Mock the dependencies
-jest.mock('../services/ReviewService');
+// Create a mock instance that will be shared
+const mockReviewService = {
+  createReview: jest.fn(),
+  getReviewerDashboard: jest.fn(),
+  getPendingReviewsForReviewer: jest.fn(),
+  assignReviewer: jest.fn(),
+  getReviewsForSubmission: jest.fn(),
+  getSubmissionReviewSummary: jest.fn(),
+  getReviewStatistics: jest.fn(),
+  getAllReviews: jest.fn(),
+  getAvailableReviewers: jest.fn(),
+  getMyReviews: jest.fn(),
+  getSubmissionWithAuthor: jest.fn(),
+};
+
+// Mock the ReviewService before importing routes
+jest.mock('../services/ReviewService', () => {
+  return {
+    ReviewService: jest.fn().mockImplementation(() => mockReviewService)
+  };
+});
+
+// Mock middleware
 jest.mock('../middleware/auth', () => ({
   authenticate: jest.fn()
 }));
 
-const MockedReviewService = ReviewService as jest.MockedClass<typeof ReviewService>;
+// Import routes AFTER mocks are set up
+import reviewRoutes from '../routes/reviews';
+
 const mockedAuthenticate = authenticate as jest.MockedFunction<typeof authenticate>;
 
 describe('Review Integration Tests', () => {
   let app: express.Application;
-  let mockReviewService: jest.Mocked<ReviewService>;
 
   beforeEach(() => {
     app = express();
     app.use(express.json());
     
+    // Reset all mocks before each test
+    jest.clearAllMocks();
+    
     // Mock authentication middleware
-    mockedAuthenticate.mockImplementation((req: any, res: any, next: any) => {
+    mockedAuthenticate.mockImplementation(((req: any, res: any, next: any) => {
       req.user = {
         userId: 'test-user-id',
         role: 'reviewer',
         email: 'test@example.com'
       };
       next();
-    });
+    }) as any);
 
     app.use('/api/reviews', reviewRoutes);
-
-    // Setup mock service
-    mockReviewService = new MockedReviewService() as jest.Mocked<ReviewService>;
-    MockedReviewService.mockImplementation(() => mockReviewService);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
   });
 
   describe('POST /api/reviews', () => {
@@ -66,7 +81,13 @@ describe('Review Integration Tests', () => {
 
       expect(response.status).toBe(201);
       expect(response.body.message).toBe('Review submitted successfully');
-      expect(response.body.review).toEqual(mockReview);
+      expect(response.body.review).toEqual(expect.objectContaining({
+        id: 'review-id',
+        submission_id: 'submission-id',
+        reviewer_id: 'test-user-id',
+        comments: 'This is a detailed review with constructive feedback.',
+        recommendation: 'minor_revisions',
+      }));
       expect(mockReviewService.createReview).toHaveBeenCalledWith(
         'submission-id',
         'test-user-id',
@@ -179,14 +200,14 @@ describe('Review Integration Tests', () => {
 
     it('should return 403 for non-reviewer users', async () => {
       // Mock user with author role
-      mockedAuthenticate.mockImplementation((req: any, res: any, next: any) => {
+      mockedAuthenticate.mockImplementation(((req: any, res: any, next: any) => {
         req.user = {
           userId: 'test-user-id',
           role: 'author',
           email: 'author@example.com'
         };
         next();
-      });
+      }) as any);
 
       const response = await request(app)
         .get('/api/reviews/pending');
@@ -199,18 +220,31 @@ describe('Review Integration Tests', () => {
   describe('POST /api/reviews/assign', () => {
     beforeEach(() => {
       // Mock user with editor role for assignment tests
-      mockedAuthenticate.mockImplementation((req: any, res: any, next: any) => {
+      mockedAuthenticate.mockImplementation(((req: any, res: any, next: any) => {
         req.user = {
           userId: 'editor-user-id',
           role: 'editor',
           email: 'editor@example.com'
         };
         next();
-      });
+      }) as any);
     });
 
     it('should assign reviewer successfully', async () => {
-      mockReviewService.assignReviewer.mockResolvedValue();
+      mockReviewService.assignReviewer.mockResolvedValue({
+        reviewer: {
+          id: 'reviewer-id',
+          email: 'reviewer@example.com',
+          first_name: 'Test',
+          last_name: 'Reviewer',
+          role: 'reviewer'
+        },
+        submission: {
+          id: 'submission-id',
+          title: 'Test Submission',
+          status: 'under-review'
+        }
+      } as any);
 
       const response = await request(app)
         .post('/api/reviews/assign')
@@ -230,14 +264,14 @@ describe('Review Integration Tests', () => {
 
     it('should return 403 for non-editor users', async () => {
       // Mock user with reviewer role
-      mockedAuthenticate.mockImplementation((req: any, res: any, next: any) => {
+      mockedAuthenticate.mockImplementation(((req: any, res: any, next: any) => {
         req.user = {
           userId: 'reviewer-user-id',
           role: 'reviewer',
           email: 'reviewer@example.com'
         };
         next();
-      });
+      }) as any);
 
       const response = await request(app)
         .post('/api/reviews/assign')
@@ -266,14 +300,14 @@ describe('Review Integration Tests', () => {
   describe('GET /api/reviews/submission/:submissionId', () => {
     beforeEach(() => {
       // Mock user with editor role
-      mockedAuthenticate.mockImplementation((req: any, res: any, next: any) => {
+      mockedAuthenticate.mockImplementation(((req: any, res: any, next: any) => {
         req.user = {
           userId: 'editor-user-id',
           role: 'editor',
           email: 'editor@example.com'
         };
         next();
-      });
+      }) as any);
     });
 
     it('should return reviews for submission', async () => {
@@ -300,20 +334,26 @@ describe('Review Integration Tests', () => {
         .get('/api/reviews/submission/submission-id');
 
       expect(response.status).toBe(200);
-      expect(response.body.reviews).toEqual(mockReviews);
+      expect(response.body.reviews).toEqual([expect.objectContaining({
+        id: 'review-1',
+        submission_id: 'submission-id',
+        reviewer_id: 'reviewer-1',
+        comments: 'Good work',
+        recommendation: 'accept',
+      })]);
       expect(response.body.summary).toEqual(mockSummary);
     });
 
     it('should return 403 for non-editor users', async () => {
       // Mock user with author role
-      mockedAuthenticate.mockImplementation((req: any, res: any, next: any) => {
+      mockedAuthenticate.mockImplementation(((req: any, res: any, next: any) => {
         req.user = {
           userId: 'author-user-id',
           role: 'author',
           email: 'author@example.com'
         };
         next();
-      });
+      }) as any);
 
       const response = await request(app)
         .get('/api/reviews/submission/submission-id');

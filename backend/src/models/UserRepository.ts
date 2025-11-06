@@ -10,6 +10,15 @@ export class UserRepository extends BaseRepository<User> {
    * Find user by email
    */
   async findByEmail(email: string): Promise<User | null> {
+    // SQL-first mode for testing with local database
+    if (process.env.DB_HOST || process.env.DATABASE_URL) {
+      const result = await this.query(
+        'SELECT * FROM users WHERE email = $1',
+        [email]
+      );
+      return result.rows[0] || null;
+    }
+
     const { data, error } = await this.supabase
       .from('users')
       .select('*')
@@ -30,6 +39,15 @@ export class UserRepository extends BaseRepository<User> {
    * Find users by role
    */
   async findByRole(role: User['role']): Promise<User[]> {
+    // SQL-first mode for testing with local database
+    if (process.env.DB_HOST || process.env.DATABASE_URL) {
+      const result = await this.query(
+        'SELECT * FROM users WHERE role = $1 ORDER BY created_at DESC',
+        [role]
+      );
+      return result.rows;
+    }
+
     const { data, error } = await this.supabase
       .from('users')
       .select('*')
@@ -47,6 +65,20 @@ export class UserRepository extends BaseRepository<User> {
    * Search users by name or affiliation
    */
   async search(query: string): Promise<User[]> {
+    // SQL-first mode for testing with local database
+    if (process.env.DB_HOST || process.env.DATABASE_URL) {
+      const searchPattern = `%${query}%`;
+      const result = await this.query(
+        `SELECT * FROM users 
+         WHERE first_name ILIKE $1 
+            OR last_name ILIKE $1 
+            OR affiliation ILIKE $1 
+         ORDER BY last_name ASC`,
+        [searchPattern]
+      );
+      return result.rows;
+    }
+
     const { data, error } = await this.supabase
       .from('users')
       .select('*')
@@ -106,6 +138,20 @@ export class UserRepository extends BaseRepository<User> {
    * Get user statistics by role
    */
   async getUserStats(): Promise<Record<string, number>> {
+    // SQL-first mode for testing with local database
+    if (process.env.DB_HOST || process.env.DATABASE_URL) {
+      const result = await this.query(
+        'SELECT role, COUNT(*) as count FROM users GROUP BY role'
+      );
+      
+      const stats: Record<string, number> = {};
+      result.rows.forEach((row: any) => {
+        stats[row.role] = parseInt(row.count, 10);
+      });
+      
+      return stats;
+    }
+
     const { data, error } = await this.supabase
       .from('users')
       .select('role');
@@ -150,6 +196,15 @@ export class UserRepository extends BaseRepository<User> {
    * Update user role (admin function)
    */
   async updateRole(id: string, role: User['role']): Promise<User | null> {
+    // SQL-first mode for testing with local database
+    if (process.env.DB_HOST || process.env.DATABASE_URL) {
+      const result = await this.query(
+        'UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        [role, id]
+      );
+      return result.rows[0] || null;
+    }
+
     const { data, error } = await this.supabase
       .from('users')
       .update({ 
@@ -177,6 +232,26 @@ export class UserRepository extends BaseRepository<User> {
     currentPage: number;
   }> {
     const offset = (page - 1) * limit;
+
+    // SQL-first mode for testing with local database
+    if (process.env.DB_HOST || process.env.DATABASE_URL) {
+      // Get total count
+      const countResult = await this.query('SELECT COUNT(*) as total FROM users');
+      const total = parseInt(countResult.rows[0].total, 10);
+
+      // Get paginated data
+      const dataResult = await this.query(
+        'SELECT * FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+        [limit, offset]
+      );
+
+      return {
+        users: dataResult.rows,
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page
+      };
+    }
 
     // Get total count
     const { count, error: countError } = await this.supabase

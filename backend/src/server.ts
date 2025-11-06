@@ -14,7 +14,7 @@ import reviewRoutes from './routes/reviews';
 import manuscriptRoutes from './routes/manuscripts';
 import articleRoutes from './routes/articles';
 import publicationRoutes from './routes/publications';
-import searchRoutes from './routes/search';
+// import searchRoutes from './routes/search';
 
 // Import services
 import { EmailService } from './services';

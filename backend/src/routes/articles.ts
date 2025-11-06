@@ -76,7 +76,7 @@ router.get('/', async (req, res) => {
     }
 
     // Transform the data to match frontend expectations
-    const transformedArticles = articles?.map(article => ({
+    const transformedArticles = articles?.map((article: any) => ({
       id: article.id,
       submission_id: article.submission_id,
       title: article.title,
@@ -221,7 +221,7 @@ router.get('/search', async (req, res) => {
       .or(`title.ilike.%${query}%,abstract.ilike.%${query}%,authors.cs.{${query}},keywords.cs.{${query}}`);
 
     // Transform the data
-    const transformedArticles = articles?.map(article => ({
+    const transformedArticles = articles?.map((article: any) => ({
       id: article.id,
       submission_id: article.submission_id,
       title: article.title,
@@ -321,7 +321,7 @@ router.get('/volumes/:volumeId/issues/:issueId/articles', async (req, res) => {
     }
 
     // Transform the data
-    const transformedArticles = articles?.map(article => ({
+    const transformedArticles = articles?.map((article: any) => ({
       id: article.id,
       submission_id: article.submission_id,
       title: article.title,
