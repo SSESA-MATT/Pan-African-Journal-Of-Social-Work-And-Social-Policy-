@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArticleSearchFilters, VolumeWithIssues } from '@/types/article';
-import { articleApi } from '@/lib/articleApi';
+import { ArticleSearchFilters } from '@/types/article';
+import { articlesApi } from '@/lib/api-client';
 
 interface ArticleFiltersProps {
   filters: ArticleSearchFilters;
@@ -17,7 +17,7 @@ export const ArticleFilters: React.FC<ArticleFiltersProps> = ({
   onFiltersChange,
   onSearchChange,
 }) => {
-  const [volumes, setVolumes] = useState<VolumeWithIssues[]>([]);
+  const [volumes, setVolumes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,8 +30,8 @@ export const ArticleFilters: React.FC<ArticleFiltersProps> = ({
       setIsLoading(true);
       setError(null);
 
-      const response = await articleApi.getVolumes();
-      setVolumes(response.volumes);
+      const response = await articlesApi.getVolumes();
+      setVolumes(response.volumes || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load volumes');
     } finally {
@@ -63,7 +63,7 @@ export const ArticleFilters: React.FC<ArticleFiltersProps> = ({
 
   const getIssuesForSelectedVolume = () => {
     if (!filters.volume) return [];
-    const selectedVolume = volumes.find(v => v.volume_number === filters.volume);
+    const selectedVolume = volumes.find((v: any) => v.volumeNumber === filters.volume);
     return selectedVolume?.issues || [];
   };
 
@@ -127,8 +127,8 @@ export const ArticleFilters: React.FC<ArticleFiltersProps> = ({
             >
               <option value="">All Volumes</option>
               {volumes.map((volume) => (
-                <option key={volume.id} value={volume.volume_number}>
-                  Volume {volume.volume_number} ({volume.year})
+                <option key={volume.id || volume._id} value={volume.volumeNumber}>
+                  Volume {volume.volumeNumber} ({volume.year})
                 </option>
               ))}
             </select>
@@ -146,9 +146,9 @@ export const ArticleFilters: React.FC<ArticleFiltersProps> = ({
               disabled={isLoading || !filters.volume}
             >
               <option value="">All Issues</option>
-              {getIssuesForSelectedVolume().map((issue) => (
-                <option key={issue.id} value={issue.issue_number}>
-                  Issue {issue.issue_number}
+              {getIssuesForSelectedVolume().map((issue: any) => (
+                <option key={issue.id || issue._id} value={issue.issueNumber}>
+                  Issue {issue.issueNumber}
                 </option>
               ))}
             </select>

@@ -1,208 +1,355 @@
 import { Router, Request, Response } from 'express';
-import { authenticate } from '../middleware/auth';
-import { ManuscriptRepository } from '../models/ManuscriptRepository';
+import { z } from 'zod';
+import Manuscript from '../models/Manuscript';
+import { authenticate, requireRole } from '../middleware/auth';
+import { uploadManuscript, handleUploadError } from '../middleware/upload';
+import { validate } from '../middleware/validate';
+import fileService from '../services/file-service';
+import emailService from '../services/email-service';
 
 const router = Router();
-const manuscriptRepo = new ManuscriptRepository();
 
-// Author routes
-router.post('/', authenticate, async (req: Request, res: Response) => {
+// All manuscript routes require authentication
+router.use(authenticate);
+
+// ─── POST /api/manuscripts — Submit a new manuscript ──────────
+router.post('/', uploadManuscript, handleUploadError, async (req: Request, res: Response) => {
   try {
-    if (!req.user || req.user.role !== 'author') {
-      return res.status(403).json({ error: 'Only authors can submit manuscripts' });
+    const { title, abstract, keywords, authors, category } = req.body;
+
+    // Parse JSON fields that come as strings from FormData
+    const parsedKeywords = typeof keywords === 'string' ? JSON.parse(keywords) : keywords;
+    const parsedAuthors = typeof authors === 'string' ? JSON.parse(authors) : authors;
+
+    // Upload manuscript file
+    let manuscriptFile;
+    if (req.file) {
+      manuscriptFile = await fileService.uploadFile(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        'manuscripts'
+      );
     }
 
-    const manuscriptData = {
-      ...req.body,
-      author_id: req.user.userId,
-      status: 'draft',
-      submission_date: new Date().toISOString(),
-      last_updated: new Date().toISOString(),
-    };
+    const manuscript = await Manuscript.create({
+      title,
+      abstract,
+      keywords: parsedKeywords || [],
+      authors: parsedAuthors || [
+        {
+          userId: req.userId,
+          name: `${req.user!.firstName} ${req.user!.lastName}`,
+          email: req.user!.email,
+          affiliation: req.user!.affiliation,
+          isCorresponding: true,
+        },
+      ],
+      submittedBy: req.userId,
+      category: category || 'research-article',
+      status: req.file ? 'submitted' : 'draft',
+      submittedAt: req.file ? new Date() : undefined,
+      manuscriptFile: manuscriptFile
+        ? {
+            url: manuscriptFile.url,
+            publicId: manuscriptFile.publicId,
+            filename: manuscriptFile.filename,
+            size: manuscriptFile.size,
+            mimeType: manuscriptFile.mimeType,
+            uploadedAt: new Date(),
+          }
+        : undefined,
+    });
 
-    const manuscript = await manuscriptRepo.create(manuscriptData);
-    res.status(201).json(manuscript);
-  } catch (error) {
-    console.error('Error submitting manuscript:', error);
-    res.status(500).json({ error: 'Failed to submit manuscript' });
+    // Send confirmation email
+    if (manuscript.status === 'submitted') {
+      emailService
+        .sendSubmissionConfirmation(req.user!.email, req.user!.firstName, title)
+        .catch(() => {});
+    }
+
+    const populated = await Manuscript.findById(manuscript.id)
+      .populate('submittedBy', 'firstName lastName email affiliation')
+      .populate('assignedEditor', 'firstName lastName email');
+
+    res.status(201).json({ manuscript: populated });
+  } catch (error: any) {
+    console.error('Manuscript submission error:', error);
+    res.status(500).json({ error: 'Failed to submit manuscript.' });
   }
 });
 
-router.get('/user/:userId', authenticate, async (req: Request, res: Response) => {
+// ─── GET /api/manuscripts/my — Author's manuscripts ───────────
+router.get('/my', async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
-    
-    if (!req.user || (req.user.userId !== userId && !['admin', 'editor'].includes(req.user.role))) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
+    const { status, page = '1', limit = '10' } = req.query;
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
 
-    const manuscripts = await manuscriptRepo.findByAuthorId(userId);
-    res.json(manuscripts);
+    const query: any = { submittedBy: req.userId };
+    if (status) query.status = status;
+
+    const [manuscripts, total] = await Promise.all([
+      Manuscript.find(query)
+        .sort({ updatedAt: -1 })
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum)
+        .populate('assignedEditor', 'firstName lastName email'),
+      Manuscript.countDocuments(query),
+    ]);
+
+    res.json({
+      manuscripts,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum),
+    });
   } catch (error) {
-    console.error('Error fetching user manuscripts:', error);
-    res.status(500).json({ error: 'Failed to fetch manuscripts' });
+    res.status(500).json({ error: 'Failed to fetch manuscripts.' });
   }
 });
 
-router.get('/:id', authenticate, async (req: Request, res: Response) => {
+// ─── GET /api/manuscripts/all — Editor/Admin view ─────────────
+router.get('/all', requireRole('editor', 'admin'), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const manuscript = await manuscriptRepo.findById(id);
-    
+    const { status, page = '1', limit = '20', search } = req.query;
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+
+    const query: any = {};
+    if (status) query.status = status;
+    if (search) {
+      query.$text = { $search: search as string };
+    }
+
+    const [manuscripts, total] = await Promise.all([
+      Manuscript.find(query)
+        .sort({ createdAt: -1 })
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum)
+        .populate('submittedBy', 'firstName lastName email affiliation')
+        .populate('assignedEditor', 'firstName lastName email'),
+      Manuscript.countDocuments(query),
+    ]);
+
+    res.json({
+      manuscripts,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum),
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch manuscripts.' });
+  }
+});
+
+// ─── GET /api/manuscripts/statistics — Dashboard stats ────────
+router.get('/statistics', requireRole('editor', 'admin'), async (_req: Request, res: Response) => {
+  try {
+    const stats = await Manuscript.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
+
+    const result: Record<string, number> = {};
+    stats.forEach((s) => {
+      result[s._id] = s.count;
+    });
+
+    const totalThisMonth = await Manuscript.countDocuments({
+      createdAt: { $gte: new Date(new Date().setDate(1)) },
+    });
+
+    res.json({ statistics: result, totalThisMonth });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch statistics.' });
+  }
+});
+
+// ─── GET /api/manuscripts/:id — Single manuscript ─────────────
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const manuscript = await Manuscript.findById(req.params.id)
+      .populate('submittedBy', 'firstName lastName email affiliation')
+      .populate('assignedEditor', 'firstName lastName email');
+
     if (!manuscript) {
-      return res.status(404).json({ error: 'Manuscript not found' });
+      res.status(404).json({ error: 'Manuscript not found.' });
+      return;
     }
 
-    // Check permissions
-    if (!req.user || (
-      manuscript.author_id !== req.user.userId && 
-      !['admin', 'editor', 'reviewer'].includes(req.user.role) &&
-      !(req.user.role === 'reviewer' && manuscript.assigned_reviewers?.includes(req.user.userId))
-    )) {
-      return res.status(403).json({ error: 'Access denied' });
+    // Only allow owner, editor, or admin to see the full manuscript
+    const isOwner = manuscript.submittedBy && (manuscript.submittedBy as any)._id.toString() === req.userId;
+    const isPrivileged = ['editor', 'admin'].includes(req.user!.role);
+
+    if (!isOwner && !isPrivileged) {
+      res.status(403).json({ error: 'Access denied.' });
+      return;
     }
 
-    res.json(manuscript);
+    res.json({ manuscript });
   } catch (error) {
-    console.error('Error fetching manuscript:', error);
-    res.status(500).json({ error: 'Failed to fetch manuscript' });
+    res.status(500).json({ error: 'Failed to fetch manuscript.' });
   }
 });
 
-router.put('/:id', authenticate, async (req: Request, res: Response) => {
+// ─── PUT /api/manuscripts/:id — Update manuscript ─────────────
+router.put('/:id', uploadManuscript, handleUploadError, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const manuscript = await manuscriptRepo.findById(id);
-    
+    const manuscript = await Manuscript.findById(req.params.id);
     if (!manuscript) {
-      return res.status(404).json({ error: 'Manuscript not found' });
+      res.status(404).json({ error: 'Manuscript not found.' });
+      return;
     }
 
-    // Check permissions - only author can edit their own manuscript in draft status
-    if (!req.user || manuscript.author_id !== req.user.userId) {
-      return res.status(403).json({ error: 'Access denied' });
+    const isOwner = manuscript.submittedBy.toString() === req.userId;
+    const isPrivileged = ['editor', 'admin'].includes(req.user!.role);
+
+    if (!isOwner && !isPrivileged) {
+      res.status(403).json({ error: 'Access denied.' });
+      return;
     }
 
-    if (manuscript.status !== 'draft') {
-      return res.status(400).json({ error: 'Can only edit manuscripts in draft status' });
+    // Authors can only update drafts or revisions
+    if (isOwner && !isPrivileged && !['draft', 'revisions_required'].includes(manuscript.status)) {
+      res.status(400).json({ error: 'Cannot edit manuscript in current status.' });
+      return;
     }
 
-    const updateData = {
-      ...req.body,
-      last_updated: new Date().toISOString(),
-    };
+    const { title, abstract, keywords, authors, category } = req.body;
 
-    const updatedManuscript = await manuscriptRepo.update(id, updateData);
-    res.json(updatedManuscript);
+    if (title) manuscript.title = title;
+    if (abstract) manuscript.abstract = abstract;
+    if (keywords) manuscript.keywords = typeof keywords === 'string' ? JSON.parse(keywords) : keywords;
+    if (authors) manuscript.authors = typeof authors === 'string' ? JSON.parse(authors) : authors;
+    if (category) manuscript.category = category;
+
+    // Handle new file upload
+    if (req.file) {
+      // Delete old file if it exists
+      if (manuscript.manuscriptFile?.publicId) {
+        fileService.deleteFile(manuscript.manuscriptFile.publicId).catch(() => {});
+      }
+
+      const uploaded = await fileService.uploadFile(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        'manuscripts'
+      );
+
+      manuscript.manuscriptFile = {
+        url: uploaded.url,
+        publicId: uploaded.publicId,
+        filename: uploaded.filename,
+        size: uploaded.size,
+        mimeType: uploaded.mimeType,
+        uploadedAt: new Date(),
+      };
+    }
+
+    // If resubmitting after revisions
+    if (manuscript.status === 'revisions_required' && (req.file || req.body.submitRevision)) {
+      manuscript.status = 'revised';
+    }
+
+    // If submitting a draft
+    if (manuscript.status === 'draft' && req.body.submit) {
+      manuscript.status = 'submitted';
+      manuscript.submittedAt = new Date();
+    }
+
+    await manuscript.save();
+
+    const populated = await Manuscript.findById(manuscript.id)
+      .populate('submittedBy', 'firstName lastName email affiliation')
+      .populate('assignedEditor', 'firstName lastName email');
+
+    res.json({ manuscript: populated });
   } catch (error) {
-    console.error('Error updating manuscript:', error);
-    res.status(500).json({ error: 'Failed to update manuscript' });
+    console.error('Update manuscript error:', error);
+    res.status(500).json({ error: 'Failed to update manuscript.' });
   }
 });
 
-router.delete('/:id', authenticate, async (req: Request, res: Response) => {
+// ─── PUT /api/manuscripts/:id/status — Editor status update ──
+router.put('/:id/status', requireRole('editor', 'admin'), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const manuscript = await manuscriptRepo.findById(id);
-    
+    const { status, editorComments, revisionDeadline } = req.body;
+
+    const manuscript = await Manuscript.findById(req.params.id).populate('submittedBy', 'firstName lastName email');
     if (!manuscript) {
-      return res.status(404).json({ error: 'Manuscript not found' });
+      res.status(404).json({ error: 'Manuscript not found.' });
+      return;
     }
 
-    // Check permissions - only author can delete their own manuscript in draft status
-    if (!req.user || manuscript.author_id !== req.user.userId) {
-      return res.status(403).json({ error: 'Access denied' });
+    manuscript.status = status;
+    if (editorComments) manuscript.editorComments = editorComments;
+    if (revisionDeadline) manuscript.revisionDeadline = new Date(revisionDeadline);
+
+    if (status === 'accepted') manuscript.acceptedAt = new Date();
+    if (status === 'rejected') manuscript.rejectedAt = new Date();
+
+    await manuscript.save();
+
+    // Notify author
+    const author = manuscript.submittedBy as any;
+    if (author?.email) {
+      emailService
+        .sendStatusUpdate(author.email, author.firstName, manuscript.title, status, editorComments)
+        .catch(() => {});
     }
 
-    if (manuscript.status !== 'draft') {
-      return res.status(400).json({ error: 'Can only delete manuscripts in draft status' });
-    }
-
-    await manuscriptRepo.delete(id);
-    res.status(204).send();
+    res.json({ manuscript });
   } catch (error) {
-    console.error('Error deleting manuscript:', error);
-    res.status(500).json({ error: 'Failed to delete manuscript' });
+    res.status(500).json({ error: 'Failed to update manuscript status.' });
   }
 });
 
-// Admin/Editor routes
-router.get('/admin/all', authenticate, async (req: Request, res: Response) => {
+// ─── PUT /api/manuscripts/:id/assign-editor — Assign editor ──
+router.put('/:id/assign-editor', requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    if (!req.user || !['admin', 'editor'].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
+    const { editorId } = req.body;
 
-    const manuscripts = await manuscriptRepo.findAll();
-    res.json(manuscripts);
-  } catch (error) {
-    console.error('Error fetching all manuscripts:', error);
-    res.status(500).json({ error: 'Failed to fetch manuscripts' });
-  }
-});
+    const manuscript = await Manuscript.findByIdAndUpdate(
+      req.params.id,
+      { assignedEditor: editorId },
+      { new: true }
+    )
+      .populate('submittedBy', 'firstName lastName email')
+      .populate('assignedEditor', 'firstName lastName email');
 
-router.post('/:id/assign-reviewer', authenticate, async (req: Request, res: Response) => {
-  try {
-    if (!req.user || !['admin', 'editor'].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    const { id } = req.params;
-    const { reviewerId } = req.body;
-
-    const manuscript = await manuscriptRepo.findById(id);
     if (!manuscript) {
-      return res.status(404).json({ error: 'Manuscript not found' });
+      res.status(404).json({ error: 'Manuscript not found.' });
+      return;
     }
 
-    await manuscriptRepo.assignReviewer(id, reviewerId);
-    res.json({ message: 'Reviewer assigned successfully' });
+    res.json({ manuscript });
   } catch (error) {
-    console.error('Error assigning reviewer:', error);
-    res.status(500).json({ error: 'Failed to assign reviewer' });
+    res.status(500).json({ error: 'Failed to assign editor.' });
   }
 });
 
-router.put('/:id/status', authenticate, async (req: Request, res: Response) => {
+// ─── GET /api/manuscripts/:id/download — Download file ────────
+router.get('/:id/download', async (req: Request, res: Response) => {
   try {
-    if (!req.user || !['admin', 'editor'].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Access denied' });
+    const manuscript = await Manuscript.findById(req.params.id);
+    if (!manuscript || !manuscript.manuscriptFile?.publicId) {
+      res.status(404).json({ error: 'File not found.' });
+      return;
     }
 
-    const { id } = req.params;
-    const { status } = req.body;
+    const isOwner = manuscript.submittedBy.toString() === req.userId;
+    const isPrivileged = ['editor', 'admin', 'reviewer'].includes(req.user!.role);
 
-    const manuscript = await manuscriptRepo.findById(id);
-    if (!manuscript) {
-      return res.status(404).json({ error: 'Manuscript not found' });
+    if (!isOwner && !isPrivileged) {
+      res.status(403).json({ error: 'Access denied.' });
+      return;
     }
 
-    const updatedManuscript = await manuscriptRepo.updateStatus(id, status);
-    res.json(updatedManuscript);
+    const downloadUrl = fileService.getDownloadUrl(manuscript.manuscriptFile.publicId);
+    res.json({ url: downloadUrl, filename: manuscript.manuscriptFile.filename });
   } catch (error) {
-    console.error('Error updating manuscript status:', error);
-    res.status(500).json({ error: 'Failed to update manuscript status' });
-  }
-});
-
-// File upload routes
-router.post('/upload', authenticate, async (req: Request, res: Response) => {
-  try {
-    // TODO: Implement file upload logic
-    res.status(501).json({ error: 'File upload not yet implemented' });
-  } catch (error) {
-    console.error('Error uploading file:', error);
-    res.status(500).json({ error: 'Failed to upload file' });
-  }
-});
-
-router.get('/files/:fileId', authenticate, async (req: Request, res: Response) => {
-  try {
-    // TODO: Implement file download logic
-    res.status(501).json({ error: 'File download not yet implemented' });
-  } catch (error) {
-    console.error('Error downloading file:', error);
-    res.status(500).json({ error: 'Failed to download file' });
+    res.status(500).json({ error: 'Failed to generate download link.' });
   }
 });
 

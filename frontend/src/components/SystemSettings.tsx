@@ -216,7 +216,6 @@ Technical Team`,
     try {
       setSaving(true);
       // Here you would save to your backend
-      console.log('Saving journal settings:', journalSettings);
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       alert('Settings saved successfully!');

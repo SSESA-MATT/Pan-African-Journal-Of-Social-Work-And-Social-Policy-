@@ -4,8 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthProvider';
-import { getDashboardRoute, getRoleName } from '@/lib/roleUtils';
-import { tokenStorage } from '@/lib/storage';
+import { getDashboardRoute } from '@/lib/roleUtils';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -46,105 +45,36 @@ export default function RegisterPage() {
     }
 
     try {
-      // Use no-email registration (bypasses email confirmation completely)
-      const response = await fetch('/api/auth/register-no-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          affiliation: formData.affiliation,
-          role: formData.role
-        }),
+      // Use AuthProvider's register method (which uses API client)
+      await register({
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        affiliation: formData.affiliation,
+        role: formData.role as 'author' | 'reviewer',
       });
 
-      const result = await response.json();
-
-      console.log('Registration response:', { status: response.status, result });
-
-      if (!response.ok) {
-        // Handle specific error codes
-        if (result.code === 'USER_EXISTS') {
-          setError('An account with this email already exists. Please try signing in instead.');
-        } else if (result.code === 'EMAIL_ERROR') {
-          setError('There was an issue with email configuration. Please try again or contact support.');
-        } else if (result.code === 'SIGNUP_DISABLED') {
-          setError('Registration is currently disabled. Please contact support.');
-        } else {
-          setError(result.error || `Registration failed (${response.status})`);
-        }
-        setLoading(false);
-        return;
-      }
-
-      const roleName = getRoleName(formData.role as any);
-      const dashboardRoute = getDashboardRoute(formData.role as any);
+      // Success - user is now logged in via AuthProvider, redirect
+      setSuccess('Account created successfully! Redirecting to your dashboard...');
       
-      // Clear the form
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-        affiliation: '',
-        role: 'author',
-        expertise: [],
-        bio: ''
-      });
+      setTimeout(() => {
+        router.push('/');  // will be picked up by useEffect below
+      }, 1000);
 
-      if (result.needsEmailConfirmation) {
-        // Email confirmation required
-        setSuccess(`Registration successful! We've sent a confirmation email to ${formData.email}. Please check your inbox and click the confirmation link to activate your account.`);
-        
-        // Clear the form
-        setFormData({
-          firstName: '',
-          lastName: '',
-          email: '',
-          password: '',
-          confirmPassword: '',
-          affiliation: '',
-          role: 'author',
-          expertise: [],
-          bio: ''
-        });
-        
-        // Show success message - no redirect needed
-        setTimeout(() => {
-          setSuccess(prev => prev + '\n\nOnce confirmed, you can log in at the login page.');
-        }, 3000);
-        
-      } else if (result.autoLoggedIn && result.token) {
-        // User was auto-logged in, store session and redirect
-        setSuccess(`Registration successful! Welcome ${roleName}. Redirecting to your dashboard...`);
-        
-        // Store auth data
-        const authData = {
-          token: result.token,
-          refresh_token: result.refresh_token,
-          user: result.user
-        };
-        tokenStorage.setAuthData(authData);
-        
-        // Redirect to dashboard using window.location for fresh page load
-        setTimeout(() => {
-          window.location.href = dashboardRoute;
-        }, 2000);
-        
-      } else {
-        // Manual login required
-        setSuccess(`Registration successful! Welcome ${roleName}. Please log in to continue.`);
-        setTimeout(() => router.push('/login?message=Please login with your new credentials'), 3000);
-      }
     } catch (err) {
-      console.error('Registration error:', err);
-      setError(err instanceof Error ? err.message : 'Registration failed');
-    } finally {
+      const errorMessage = err instanceof Error ? err.message : 'Registration failed';
+      
+      // Handle specific error cases
+      if (errorMessage.includes('USER_EXISTS') || errorMessage.includes('already exists')) {
+        setError('An account with this email already exists. Please try signing in instead.');
+      } else if (errorMessage.includes('EMAIL_ERROR')) {
+        setError('There was an issue with email configuration. Please try again or contact support.');
+      } else if (errorMessage.includes('SIGNUP_DISABLED')) {
+        setError('Registration is currently disabled. Please contact support.');
+      } else {
+        setError(errorMessage);
+      }
       setLoading(false);
     }
   };

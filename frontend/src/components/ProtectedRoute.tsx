@@ -19,14 +19,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { user, isLoading, isAuthenticated } = useAuth();
 
-  // Debug logging
-  console.log('ProtectedRoute - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated, 'user:', user);
-
   // Show loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-600"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-accent-green"></div>
       </div>
     );
   }
@@ -50,7 +47,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             </p>
             <a
               href={redirectTo}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-accent-green hover:bg-accent-green/80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-green"
             >
               Go to Login
             </a>

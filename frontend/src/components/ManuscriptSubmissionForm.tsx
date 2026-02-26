@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
-import { submitManuscript } from '../lib/manuscriptApi';
-import { ManuscriptSubmissionRequest } from '../types/manuscript';
+import { manuscriptsApi } from '../lib/api-client';
 import RichTextEditor from './RichTextEditor';
 import { useRouter } from 'next/navigation';
 
@@ -218,35 +217,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
     }));
   };
 
-  const uploadFile = async (file: File, submissionId: string): Promise<string> => {
-    setFileUploading(true);
-    setUploadProgress(0);
-    
-    try {
-      const uploadFormData = new FormData();
-      uploadFormData.append('file', file);
-      uploadFormData.append('submissionId', submissionId);
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: uploadFormData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'File upload failed');
-      }
-
-      const result = await response.json();
-      setUploadProgress(100);
-      return result.fileUrl;
-    } catch (error) {
-      console.error('File upload error:', error);
-      throw error;
-    } finally {
-      setFileUploading(false);
-    }
-  };
+  // File upload is handled as part of FormData in the manuscript create call
 
   const validateStep = (step: number): string[] => {
     const errors: string[] = [];
@@ -318,59 +289,26 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmissionComplete })
     setLoading(true);
 
     try {
-      // Prepare submission data for direct API call
-      const submissionPayload = {
-        title: formData.title.trim(),
-        abstract: formData.abstract.trim(),
-        content: formData.content.trim(),
-        keywords: formData.keywords.split(',').map(k => k.trim()).filter(k => k),
-        authors: formData.authors.split(',').map(a => a.trim()).filter(a => a),
-        corresponding_author: formData.corresponding_author.trim(),
-        manuscript_type: formData.manuscript_type,
-        funding_information: formData.funding_information.trim(),
-        conflict_of_interest: formData.conflict_of_interest.trim(),
-        ethics_approval: formData.ethics_approval.trim(),
-        data_availability: formData.data_availability.trim(),
-        research_areas: formData.research_areas.trim(),
-        word_count: wordCount
-      };
+      // Build FormData for the backend (file + JSON fields)
+      const payload = new FormData();
+      payload.append('title', formData.title.trim());
+      payload.append('abstract', formData.abstract.trim());
+      payload.append('category', formData.manuscript_type || 'research-article');
+      payload.append('keywords', JSON.stringify(formData.keywords.split(',').map(k => k.trim()).filter(Boolean)));
 
-      console.log('Submitting manuscript:', { title: submissionPayload.title, user_id: user.id });
+      const authorList = formData.authors.split(',').map(name => ({
+        name: name.trim(),
+        email: '',
+        affiliation: '',
+        isCorresponding: name.trim() === formData.corresponding_author.trim(),
+      })).filter(a => a.name);
+      payload.append('authors', JSON.stringify(authorList));
 
-      // Make direct API call with proper session authentication
-      const response = await fetch('/api/submissions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies for session authentication
-        body: JSON.stringify(submissionPayload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Submission failed:', response.status, errorData);
-        
-        if (response.status === 401) {
-          throw new Error('Authentication failed. Please log in again.');
-        }
-        
-        throw new Error(errorData.error || `Submission failed with status ${response.status}`);
+      if (formData.manuscript_file) {
+        payload.append('manuscriptFile', formData.manuscript_file);
       }
 
-      const result = await response.json();
-      console.log('Submission successful:', result);
-
-      // Upload files if provided
-      if (formData.manuscript_file && result.submission?.id) {
-        try {
-          const fileUrl = await uploadFile(formData.manuscript_file, result.submission.id);
-          console.log('File uploaded successfully:', fileUrl);
-        } catch (fileError) {
-          console.error('File upload failed:', fileError);
-          throw new Error('Failed to upload manuscript file. Please try again.');
-        }
-      }
+      const result = await manuscriptsApi.create(payload);
 
       setSuccess(true);
       

@@ -241,8 +241,7 @@ const PublicationManager: React.FC<PublicationManagerProps> = ({ currentUser }) 
   };
 
   const assignManuscriptToIssue = async (manuscriptId: string, volumeId: string) => {
-    // Implementation would assign manuscript to specific volume/issue
-    console.log('Assigning manuscript', manuscriptId, 'to volume', volumeId);
+    // TODO: Implementation would assign manuscript to specific volume/issue
   };
 
   const generateDOI = async (manuscriptId: string) => {

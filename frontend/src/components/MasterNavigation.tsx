@@ -151,11 +151,9 @@ const MasterNavigation: React.FC = () => {
                 manuscript={selectedManuscript}
                 userRole={user.role as any}
                 onStatusUpdate={(id, status) => {
-                  console.log('Status update:', id, status);
                   // Handle status update
                 }}
                 onCommentAdd={(id, comment) => {
-                  console.log('Comment added:', id, comment);
                   // Handle comment addition
                 }}
               />

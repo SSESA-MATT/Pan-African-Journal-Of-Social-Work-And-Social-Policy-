@@ -2,124 +2,111 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import dotenv from 'dotenv';
 import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
+
+import config from './config';
+import connectDB from './config/database';
 
 // Import routes
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
-import fileRoutes from './routes/files';
-import submissionRoutes from './routes/submissions';
-import reviewRoutes from './routes/reviews';
 import manuscriptRoutes from './routes/manuscripts';
+import reviewRoutes from './routes/reviews';
 import articleRoutes from './routes/articles';
-import publicationRoutes from './routes/publications';
-// import searchRoutes from './routes/search';
-
-// Import services
-import { EmailService } from './services';
-
-// Import security middleware
-import { securityHeaders, sanitizeRequestBody, sanitizeQueryParams, escapeHtmlResponse, noCache } from './middleware/security';
-import { apiLimiter } from './middleware/rateLimit';
-import { auditLogger } from './middleware/auditLogger';
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-// Core middleware
-app.use(securityHeaders);
+// ─── Connect to MongoDB ──────────────────────────────────────
+connectDB();
+
+// ─── Core Middleware ─────────────────────────────────────────
+app.use(helmet());
+
+// CORS — allow the production frontend URL plus any Vercel preview URLs
+const allowedOrigins = [
+  config.frontendUrl,
+  ...(config.nodeEnv === 'development' ? ['http://localhost:3000', 'http://localhost:3001'] : []),
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, health checks)
+    if (!origin) return callback(null, true);
+    if (
+      allowedOrigins.includes(origin) ||
+      // Allow all Vercel preview deployments for your project
+      /\.vercel\.app$/.test(origin)
+    ) {
+      return callback(null, true);
+    }
+    callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  maxAge: 86400, // 24 hours
 }));
 app.use(compression());
-app.use(morgan('combined'));
+app.use(morgan(config.nodeEnv === 'development' ? 'dev' : 'combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-// Security middleware
-app.use(sanitizeRequestBody);
-app.use(sanitizeQueryParams);
-app.use(escapeHtmlResponse);
-app.use(noCache);
+// ─── Rate Limiting ───────────────────────────────────────────
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // 200 requests per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+app.use('/api/', limiter);
 
-// Logging middleware
-app.use(auditLogger);
-
-// Apply rate limiting to all routes
-app.use(apiLimiter);
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
+// ─── Health Check ────────────────────────────────────────────
+app.get('/health', (_req, res) => {
+  res.json({
     status: 'OK',
-    message: 'Africa Journal API is running',
+    service: 'Pan-African Journal API',
     timestamp: new Date().toISOString(),
+    environment: config.nodeEnv,
   });
 });
 
-// API routes
+// ─── API Routes ──────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/files', fileRoutes);
-app.use('/api/submissions', submissionRoutes);
-app.use('/api/reviews', reviewRoutes);
 app.use('/api/manuscripts', manuscriptRoutes);
+app.use('/api/reviews', reviewRoutes);
 app.use('/api/articles', articleRoutes);
-app.use('/api/volumes', articleRoutes); // Volume routes are in articles.js
-app.use('/api/publications', publicationRoutes);
 
-// Catch-all for undefined API routes
-app.use('/api/*', (req, res) => {
-  res.status(404).json({
-    error: 'API endpoint not found',
-    message: 'The requested API endpoint does not exist',
-  });
-});
-
-// Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({
-    error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
-  });
-});
-
-// 404 handler
-app.use('*', (req, res) => {
+// ─── 404 Handler ─────────────────────────────────────────────
+app.use('/api/*', (_req, res) => {
   res.status(404).json({
     error: 'Not Found',
-    message: 'The requested resource was not found',
+    message: 'The requested API endpoint does not exist.',
   });
 });
 
-// For local development
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, async () => {
-    console.log(`🚀 Africa Journal API server running on port ${PORT}`);
-    console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
-    
-    // Initialize email service
-    try {
-      const isEmailReady = await EmailService.verifyEmailConnection();
-      if (isEmailReady) {
-        console.log('📧 Email service initialized successfully');
-      } else {
-        console.warn('⚠️ Email service could not be initialized');
-      }
-    } catch (error) {
-      console.error('❌ Error initializing email service:', error);
-    }
+// ─── Global Error Handler ────────────────────────────────────
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled error:', err);
+  res.status(err.status || 500).json({
+    error: 'Internal Server Error',
+    message: config.nodeEnv === 'development' ? err.message : 'Something went wrong.',
   });
-}
+});
 
-// Export app for Vercel
-export { app };
+// ─── Start Server ────────────────────────────────────────────
+app.listen(config.port, () => {
+  console.log(`
+  ╔══════════════════════════════════════════════╗
+  ║   Pan-African Journal API                    ║
+  ║   Running on port ${config.port}                      ║
+  ║   Environment: ${config.nodeEnv.padEnd(28)}║
+  ║   Frontend: ${config.frontendUrl.padEnd(31)}║
+  ╚══════════════════════════════════════════════╝
+  `);
+});
+
+export default app;

@@ -2,287 +2,133 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import AdvancedSearchInterface from '@/components/search/AdvancedSearchInterface';
-import SearchResultsDisplay from '@/components/search/SearchResultsDisplay';
-import FacetedNavigation from '@/components/search/FacetedNavigation';
+import Link from 'next/link';
+import { articlesApi } from '@/lib/api-client';
 
-interface SearchResult {
-  id: string;
-  title: string;
-  abstract: string;
-  authors: string[];
-  keywords: string[];
-  published_at: string;
-  volume_id: string;
-  issue_id: string;
-  article_type: string;
-  language_code: string;
-  pdf_url: string;
-  rank?: number;
-}
-
-interface FacetGroup {
-  key: string;
-  label: string;
-  type: 'checkbox' | 'radio' | 'range' | 'date';
-  values: Array<{
-    value: string | number;
-    label: string;
-    count: number;
-    selected?: boolean;
-  }>;
-  multiSelect?: boolean;
-  collapsed?: boolean;
-}
-
-interface SearchResponse {
-  results: SearchResult[];
-  facets?: FacetGroup[];
-  total: number;
-  page: number;
-  totalPages: number;
-  searchTime: number;
-  query: string;
-}
-
-const SearchPage: React.FC = () => {
+export default function SearchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  
-  const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(null);
-  const [facets, setFacets] = useState<FacetGroup[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showFacets, setShowFacets] = useState(true);
-  const [currentSort, setCurrentSort] = useState<{ sortBy: 'relevance' | 'date' | 'title' | 'citations' | 'views'; sortOrder: 'asc' | 'desc' }>({
-    sortBy: 'relevance',
-    sortOrder: 'desc'
-  });
-
-  // Get initial query from URL params
   const initialQuery = searchParams.get('q') || '';
 
-  // Handle search results
-  const handleSearchResults = (results: SearchResponse) => {
-    setSearchResponse(results);
-    setError(null);
-    
-    // Update URL with search parameters
-    const params = new URLSearchParams();
-    if (results.query) {
-      params.set('q', results.query);
-    }
-    if (results.page > 1) {
-      params.set('page', results.page.toString());
-    }
-    
-    const newUrl = `/search${params.toString() ? `?${params.toString()}` : ''}`;
-    router.replace(newUrl, { scroll: false });
-  };
+  const [query, setQuery] = useState(initialQuery);
+  const [results, setResults] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
 
-  // Handle search error
-  const handleSearchError = (errorMessage: string) => {
-    setError(errorMessage);
-    setSearchResponse(null);
-  };
-
-  // Handle page change
-  const handlePageChange = (page: number) => {
-    if (searchResponse) {
-      // This would trigger a new search with the updated page
-      // The AdvancedSearchInterface component handles this internally
-      setLoading(true);
-      // You would typically call your search API here with the new page
-    }
-  };
-
-  // Handle sort change
-  const handleSortChange = (sortBy: 'relevance' | 'date' | 'title' | 'citations' | 'views', sortOrder: 'asc' | 'desc') => {
-    setCurrentSort({ sortBy, sortOrder });
-    setLoading(true);
-    // You would typically call your search API here with the new sort parameters
-  };
-
-  // Handle result click
-  const handleResultClick = (result: SearchResult) => {
-    // Navigate to article detail page
-    router.push(`/articles/${result.id}`);
-  };
-
-  // Handle facet changes
-  const handleFacetChange = (facetKey: string, value: string | number, selected: boolean) => {
-    setFacets(prevFacets => 
-      prevFacets.map(facet => {
-        if (facet.key === facetKey) {
-          return {
-            ...facet,
-            values: facet.values.map(val => 
-              val.value === value ? { ...val, selected } : val
-            )
-          };
-        }
-        return facet;
-      })
-    );
-  };
-
-  // Clear specific facet
-  const handleClearFacet = (facetKey: string) => {
-    setFacets(prevFacets => 
-      prevFacets.map(facet => {
-        if (facet.key === facetKey) {
-          return {
-            ...facet,
-            values: facet.values.map(val => ({ ...val, selected: false }))
-          };
-        }
-        return facet;
-      })
-    );
-  };
-
-  // Clear all facets
-  const handleClearAllFacets = () => {
-    setFacets(prevFacets => 
-      prevFacets.map(facet => ({
-        ...facet,
-        values: facet.values.map(val => ({ ...val, selected: false }))
-      }))
-    );
-  };
-
-  // Apply filters (trigger new search)
-  const handleApplyFilters = () => {
-    setLoading(true);
-    // This would typically trigger a new search with current facet selections
-    // The search logic would read the current facet state and make an API call
-  };
-
-  // Load facets when search results change
   useEffect(() => {
-    if (searchResponse?.facets) {
-      setFacets(searchResponse.facets);
+    if (initialQuery) doSearch(initialQuery, 1);
+  }, []);
+
+  const doSearch = async (q: string, p: number) => {
+    if (!q.trim()) return;
+    setLoading(true);
+    setSearched(true);
+    try {
+      const res = await articlesApi.search(q, p, 12);
+      setResults(res.articles || []);
+      setTotal(res.total || 0);
+      setTotalPages(res.totalPages || 1);
+      setPage(p);
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
     }
-  }, [searchResponse]);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    router.push(`/search?q=${encodeURIComponent(query)}`);
+    doSearch(query, 1);
+  };
+
+  const formatAuthors = (authors: any[]) => {
+    if (!authors?.length) return 'Unknown Author';
+    const names = authors.map((a: any) => (typeof a === 'string' ? a : a.name || 'Unknown'));
+    return names.length <= 2 ? names.join(' and ') : `${names[0]} et al.`;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Search Articles</h1>
-              <p className="mt-1 text-sm text-gray-600">
-                Discover research from across Africa's leading academic institutions
-              </p>
-            </div>
-            
-            {/* Toggle Facets Button (Mobile) */}
+      <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-6">Search Articles</h1>
+
+        {/* Search bar */}
+        <form onSubmit={handleSubmit} className="mb-8">
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by title, abstract, keywords, or author…"
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent-green focus:border-transparent text-sm"
+            />
             <button
-              onClick={() => setShowFacets(!showFacets)}
-              className="lg:hidden flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              type="submit"
+              className="px-6 py-3 bg-accent-green text-white rounded-lg hover:bg-accent-green/80 font-medium text-sm"
             >
-              Filters
-              {facets.some(facet => facet.values.some(val => val.selected)) && (
-                <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                  {facets.reduce((total, facet) => 
-                    total + facet.values.filter(val => val.selected).length, 0
-                  )}
-                </span>
-              )}
+              Search
             </button>
           </div>
-        </div>
-      </div>
+        </form>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar - Facets */}
-          <div className={`lg:col-span-1 ${showFacets ? 'block' : 'hidden lg:block'}`}>
-            <div className="sticky top-8">
-              <FacetedNavigation
-                facets={facets}
-                onFacetChange={handleFacetChange}
-                onClearFacet={handleClearFacet}
-                onClearAll={handleClearAllFacets}
-                onApplyFilters={handleApplyFilters}
-                loading={loading}
-                totalResults={searchResponse?.total || 0}
-                syncWithUrl={true}
-              />
-            </div>
+        {loading && (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-green mx-auto" />
           </div>
+        )}
 
-          {/* Main Content - Search and Results */}
-          <div className="lg:col-span-3">
+        {!loading && searched && (
+          <>
+            <p className="text-sm text-gray-600 mb-6">
+              {total === 0 ? 'No results found' : `${total} result${total !== 1 ? 's' : ''} found`}
+              {query && ` for "${query}"`}
+            </p>
+
             <div className="space-y-6">
-              {/* Search Interface */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <AdvancedSearchInterface
-                  onSearchResults={handleSearchResults}
-                  onSearchError={handleSearchError}
-                  onSearchStart={() => setLoading(true)}
-                  initialQuery={initialQuery}
-                />
+              {results.map((article: any) => (
+                <div key={article.id || article._id} className="bg-white shadow rounded-lg p-6">
+                  <Link href={`/articles/${article.slug || article.id || article._id}`}>
+                    <h2 className="text-lg font-semibold text-gray-900 hover:text-accent-green transition-colors mb-2">
+                      {article.title}
+                    </h2>
+                  </Link>
+                  <p className="text-sm text-gray-500 mb-2">{formatAuthors(article.authors)}</p>
+                  <p className="text-sm text-gray-600 line-clamp-3 mb-3">{article.abstract}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {article.keywords?.slice(0, 4).map((kw: string) => (
+                      <span key={kw} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">{kw}</span>
+                    ))}
+                    {article.volume && (
+                      <span className="text-xs text-gray-500 ml-2">
+                        Vol. {article.volume.volumeNumber}, Issue {article.issue?.issueNumber}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="mt-8 flex justify-center gap-2">
+                <button disabled={page <= 1} onClick={() => doSearch(query, page - 1)} className="px-4 py-2 border rounded-md text-sm disabled:opacity-50">Previous</button>
+                <span className="px-4 py-2 text-sm text-gray-600">Page {page} of {totalPages}</span>
+                <button disabled={page >= totalPages} onClick={() => doSearch(query, page + 1)} className="px-4 py-2 border rounded-md text-sm disabled:opacity-50">Next</button>
               </div>
+            )}
+          </>
+        )}
 
-              {/* Search Results */}
-              <SearchResultsDisplay
-                searchResponse={searchResponse}
-                loading={loading}
-                error={error}
-                onPageChange={handlePageChange}
-                onSortChange={handleSortChange}
-                onResultClick={handleResultClick}
-                currentSort={currentSort}
-              />
-
-
-            </div>
+        {!loading && !searched && (
+          <div className="text-center py-16 text-gray-500">
+            <p className="text-5xl mb-4">🔍</p>
+            <p>Enter a search query to find published articles.</p>
           </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="bg-white border-t border-gray-200 mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">Search Help</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li>Use quotation marks for exact phrases</li>
-                <li>Add + before words that must be included</li>
-                <li>Use - to exclude specific terms</li>
-                <li>Try different keyword combinations</li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">Popular Searches</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li><a href="/search?q=TVET" className="hover:text-blue-600">Technical Education</a></li>
-                <li><a href="/search?q=healthcare" className="hover:text-blue-600">Healthcare Systems</a></li>
-                <li><a href="/search?q=agriculture" className="hover:text-blue-600">Agricultural Innovation</a></li>
-                <li><a href="/search?q=technology" className="hover:text-blue-600">Technology Integration</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">Research Areas</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li>Education & Pedagogy</li>
-                <li>Health & Medicine</li>
-                <li>Technology & Innovation</li>
-                <li>Social Sciences</li>
-              </ul>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
-};
-
-export default SearchPage;
+}

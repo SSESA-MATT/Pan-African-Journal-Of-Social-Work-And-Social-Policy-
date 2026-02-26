@@ -1,20 +1,10 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req, res })
-
-  // Refresh session if expired - required for Server Components
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  console.log('Middleware - Session exists:', !!session)
-  console.log('Middleware - User ID:', session?.user?.id)
-
-  return res
+export async function middleware(_req: NextRequest) {
+  // Auth is handled client-side via JWT tokens stored in localStorage.
+  // This middleware is a simple pass-through — no server-side session.
+  return NextResponse.next()
 }
 
 export const config = {

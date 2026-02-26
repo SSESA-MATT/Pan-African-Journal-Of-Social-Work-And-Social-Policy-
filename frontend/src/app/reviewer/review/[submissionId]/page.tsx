@@ -1,87 +1,61 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { SubmissionDetails } from '../../../../components/SubmissionDetails';
+import { useRouter, useParams } from 'next/navigation';
 import { EnhancedReviewForm } from '../../../../components/EnhancedReviewForm';
 import { ReviewGuidelines } from '../../../../components/ReviewGuidelines';
 import { ProtectedRoute } from '../../../../components/ProtectedRoute';
-import { submissionApi } from '../../../../lib/submissionApi';
-
-interface ReviewPageProps {
-  params: {
-    submissionId: string;
-  };
-}
+import { reviewsApi } from '../../../../lib/api-client';
 
 type ReviewStep = 'overview' | 'guidelines' | 'review' | 'complete';
 
-export default function ReviewPage({ params }: ReviewPageProps) {
+export default function ReviewPage() {
+  const params = useParams();
+  const router = useRouter();
+  const reviewId = params.submissionId as string; // URL param is still submissionId for compat
   const [currentStep, setCurrentStep] = useState<ReviewStep>('overview');
-  const [submission, setSubmission] = useState<any>(null);
+  const [review, setReview] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadSubmission();
-  }, [params.submissionId]);
+  useEffect(() => { if (reviewId) loadReview(); }, [reviewId]);
 
-  const loadSubmission = async () => {
+  const loadReview = async () => {
     try {
       setIsLoading(true);
-      const response = await submissionApi.getSubmissionDetails(params.submissionId);
-      if (response.submission) {
-        setSubmission(response.submission);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load submission');
+      const res = await reviewsApi.getById(reviewId);
+      setReview(res.review);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load review');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleStepChange = (step: ReviewStep) => {
-    setCurrentStep(step);
-  };
-
-  const handleReviewComplete = () => {
-    setCurrentStep('complete');
-  };
-
-  const getStepStatus = (step: ReviewStep) => {
-    const steps: ReviewStep[] = ['overview', 'guidelines', 'review', 'complete'];
-    const currentIndex = steps.indexOf(currentStep);
-    const stepIndex = steps.indexOf(step);
-    
-    if (stepIndex < currentIndex) return 'completed';
-    if (stepIndex === currentIndex) return 'current';
-    return 'upcoming';
-  };
+  const handleReviewComplete = () => setCurrentStep('complete');
 
   if (isLoading) {
     return (
-      <ProtectedRoute requiredRole="reviewer">
-        <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 flex items-center justify-center">
+      <ProtectedRoute allowedRoles={['reviewer', 'editor', 'admin']}>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-green mx-auto"></div>
-            <p className="mt-4 text-neutral-600">Loading submission...</p>
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent-green mx-auto" />
+            <p className="mt-4 text-gray-600">Loading review…</p>
           </div>
         </div>
       </ProtectedRoute>
     );
   }
 
-  if (error) {
+  if (error || !review) {
     return (
-      <ProtectedRoute requiredRole="reviewer">
-        <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-red-500 text-4xl mb-4">⚠️</div>
-            <h2 className="text-xl font-semibold text-neutral-900 mb-2">Error Loading Submission</h2>
-            <p className="text-neutral-600 mb-4">{error}</p>
-            <button
-              onClick={loadSubmission}
-              className="px-4 py-2 bg-accent-green text-white rounded-md hover:bg-accent-green/80 transition-colors"
-            >
+      <ProtectedRoute allowedRoles={['reviewer', 'editor', 'admin']}>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center max-w-md">
+            <p className="text-red-500 text-4xl mb-4">⚠️</p>
+            <h2 className="text-xl font-semibold mb-2">Error Loading Review</h2>
+            <p className="text-gray-600 mb-4">{error || 'Review not found'}</p>
+            <button onClick={loadReview} className="px-4 py-2 bg-accent-green text-white rounded-md hover:bg-accent-green/80">
               Try Again
             </button>
           </div>
@@ -90,124 +64,85 @@ export default function ReviewPage({ params }: ReviewPageProps) {
     );
   }
 
+  const ms = review.manuscript || {};
+
   return (
-    <ProtectedRoute requiredRole="reviewer">
-      <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Progress Header */}
-          <div className="bg-white rounded-lg border border-neutral-200 shadow-sm mb-6">
-            <div className="px-6 py-4">
-              <h1 className="text-2xl font-bold text-neutral-900 mb-4">Manuscript Review Process</h1>
-              
-              {/* Progress Steps */}
-              <nav aria-label="Progress">
-                <ol className="flex items-center">
-                  {[
-                    { id: 'overview', name: 'Review Submission', icon: '📄' },
-                    { id: 'guidelines', name: 'Review Guidelines', icon: '📋' },
-                    { id: 'review', name: 'Conduct Review', icon: '✍️' },
-                    { id: 'complete', name: 'Complete', icon: '✅' }
-                  ].map((step, stepIdx) => {
-                    const status = getStepStatus(step.id as ReviewStep);
-                    return (
-                      <li key={step.id} className={`relative ${stepIdx !== 3 ? 'pr-8 sm:pr-20' : ''}`}>
-                        <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                          {stepIdx !== 3 && (
-                            <div className={`h-0.5 w-full ${status === 'completed' ? 'bg-accent-green' : 'bg-neutral-200'}`} />
-                          )}
-                        </div>
-                        <button
-                          onClick={() => handleStepChange(step.id as ReviewStep)}
-                          className={`relative flex h-10 w-10 items-center justify-center rounded-full border-2 ${
-                            status === 'completed'
-                              ? 'bg-accent-green border-accent-green text-white'
-                              : status === 'current'
-                              ? 'border-accent-green bg-white text-accent-green'
-                              : 'border-neutral-300 bg-white text-neutral-500'
-                          } hover:border-accent-green transition-colors`}
-                        >
-                          <span className="text-sm">{step.icon}</span>
-                        </button>
-                        <span className={`absolute top-12 left-1/2 transform -translate-x-1/2 text-xs font-medium ${
-                          status === 'current' ? 'text-accent-green' : 'text-neutral-500'
-                        }`}>
-                          {step.name}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ol>
-              </nav>
+    <ProtectedRoute allowedRoles={['reviewer', 'editor', 'admin']}>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+          {/* Steps indicator */}
+          <div className="mb-8 flex items-center gap-4 text-sm">
+            {(['overview', 'guidelines', 'review', 'complete'] as ReviewStep[]).map((step, i) => (
+              <button key={step} onClick={() => setCurrentStep(step)}
+                className={`capitalize ${currentStep === step ? 'text-accent-green font-semibold' : 'text-gray-400'}`}>
+                {i + 1}. {step}
+              </button>
+            ))}
+          </div>
+
+          {/* OVERVIEW */}
+          {currentStep === 'overview' && (
+            <div className="bg-white shadow rounded-lg p-8">
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">{ms.title || 'Untitled'}</h1>
+              <p className="text-gray-600 mb-6">{ms.abstract || 'No abstract available.'}</p>
+              <div className="grid grid-cols-2 gap-4 text-sm mb-6">
+                <div><span className="text-gray-500">Category:</span> {ms.category || '—'}</div>
+                <div><span className="text-gray-500">Status:</span> {review.status}</div>
+                <div><span className="text-gray-500">Due Date:</span> {review.dueDate ? new Date(review.dueDate).toLocaleDateString() : '—'}</div>
+                <div><span className="text-gray-500">Round:</span> {review.round || 1}</div>
+              </div>
+              {ms.keywords?.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {ms.keywords.map((k: string) => (
+                    <span key={k} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">{k}</span>
+                  ))}
+                </div>
+              )}
+              <button onClick={() => setCurrentStep('guidelines')} className="px-6 py-3 bg-accent-green text-white rounded-md hover:bg-accent-green/80 font-medium">
+                Next: Review Guidelines →
+              </button>
             </div>
-          </div>
+          )}
 
-          {/* Step Content */}
-          <div className="space-y-6">
-            {currentStep === 'overview' && (
-              <div className="space-y-6">
-                <SubmissionDetails 
-                  submissionId={params.submissionId}
-                  showReviewActions={false}
-                />
-                <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-neutral-900">Ready to Begin Review?</h3>
-                      <p className="text-neutral-600 mt-1">
-                        Please review the submission details above, then proceed to the review guidelines.
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleStepChange('guidelines')}
-                      className="px-6 py-3 bg-accent-green text-white font-semibold rounded-lg hover:bg-accent-green/80 transition-colors"
-                    >
-                      Continue to Guidelines
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {currentStep === 'guidelines' && (
-              <ReviewGuidelines 
-                onContinue={() => handleStepChange('review')}
-                onBack={() => handleStepChange('overview')}
+          {/* GUIDELINES */}
+          {currentStep === 'guidelines' && (
+            <div>
+              <ReviewGuidelines
+                onContinue={() => setCurrentStep('review')}
+                onBack={() => setCurrentStep('overview')}
               />
-            )}
-
-            {currentStep === 'review' && (
-              <EnhancedReviewForm 
-                submissionId={params.submissionId}
-                submission={submission}
-                onComplete={handleReviewComplete}
-                onBack={() => handleStepChange('guidelines')}
-              />
-            )}
-
-            {currentStep === 'complete' && (
-              <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-8 text-center">
-                <div className="text-6xl mb-4">🎉</div>
-                <h2 className="text-2xl font-bold text-neutral-900 mb-2">Review Submitted Successfully!</h2>
-                <p className="text-neutral-600 mb-6">
-                  Thank you for your thorough review. The editorial team has been notified and will process your feedback.
-                </p>
-                <div className="flex justify-center space-x-4">
-                  <button
-                    onClick={() => window.location.href = '/reviewer/dashboard'}
-                    className="px-6 py-3 bg-accent-green text-white font-semibold rounded-lg hover:bg-accent-green/80 transition-colors"
-                  >
-                    Return to Dashboard
-                  </button>
-                  <button
-                    onClick={() => handleStepChange('overview')}
-                    className="px-6 py-3 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
-                  >
-                    Review Another Submission
-                  </button>
-                </div>
+              <div className="mt-6 flex justify-between">
+                <button onClick={() => setCurrentStep('overview')} className="px-6 py-3 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50">
+                  ← Back
+                </button>
+                <button onClick={() => setCurrentStep('review')} className="px-6 py-3 bg-accent-green text-white rounded-md hover:bg-accent-green/80 font-medium">
+                  Begin Review →
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* REVIEW FORM */}
+          {currentStep === 'review' && (
+            <EnhancedReviewForm
+              submissionId={reviewId}
+              submission={ms}
+              onComplete={handleReviewComplete}
+              onBack={() => setCurrentStep('guidelines')}
+            />
+          )}
+
+          {/* COMPLETE */}
+          {currentStep === 'complete' && (
+            <div className="bg-white shadow rounded-lg p-12 text-center">
+              <div className="text-green-500 text-6xl mb-4">✅</div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Review Submitted!</h2>
+              <p className="text-gray-600 mb-6">Thank you for your review. The editor has been notified.</p>
+              <button onClick={() => router.push('/reviewer')} className="px-6 py-3 bg-accent-green text-white rounded-md hover:bg-accent-green/80 font-medium">
+                Back to Dashboard
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </ProtectedRoute>

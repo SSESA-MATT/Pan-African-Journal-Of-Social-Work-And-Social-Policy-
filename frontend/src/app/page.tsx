@@ -3,13 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../components/AuthProvider';
-import { articleApi } from '../lib/articleApi';
-import { ArticleWithDetails, VolumeWithIssues } from '../types/article';
+import { articlesApi } from '../lib/api-client';
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth();
-  const [latestArticles, setLatestArticles] = useState<ArticleWithDetails[]>([]);
-  const [latestVolumes, setLatestVolumes] = useState<VolumeWithIssues[]>([]);
+  const [latestArticles, setLatestArticles] = useState<any[]>([]);
+  const [latestVolumes, setLatestVolumes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -20,14 +19,14 @@ export default function Home() {
     try {
       setIsLoading(true);
 
-      // Load latest articles
-      const articlesResponse = await articleApi.getPublishedArticles(1, 6);
+      // Load latest articles from the Express backend
+      const articlesResponse = await articlesApi.getAll({ page: 1, limit: 6 });
       if (articlesResponse.articles) {
         setLatestArticles(articlesResponse.articles);
       }
 
       // Load latest volumes
-      const volumesResponse = await articleApi.getVolumes();
+      const volumesResponse = await articlesApi.getVolumes();
       if (volumesResponse.volumes) {
         setLatestVolumes(volumesResponse.volumes.slice(0, 3));
       }
@@ -38,11 +37,13 @@ export default function Home() {
     }
   };
 
-  const formatAuthors = (authors: string[]) => {
-    if (authors.length === 0) return 'Unknown Author';
-    if (authors.length === 1) return authors[0];
-    if (authors.length === 2) return `${authors[0]} and ${authors[1]}`;
-    return `${authors[0]} et al.`;
+  const formatAuthors = (authors: any[]) => {
+    if (!authors || authors.length === 0) return 'Unknown Author';
+    // Backend returns objects: { name, email, affiliation }
+    const names = authors.map((a: any) => (typeof a === 'string' ? a : a.name));
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    return `${names[0]} et al.`;
   };
 
   const formatDate = (dateString: string) => {
@@ -256,14 +257,14 @@ export default function Home() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-6">
-              {latestVolumes.map((volume: VolumeWithIssues) => (
+              {latestVolumes.map((volume: any) => (
                 <div key={volume.id} className="bg-white rounded-lg shadow-sm border border-neutral-200 overflow-hidden hover:shadow-md transition-shadow">
                   <div className="bg-gradient-to-r from-accent-green to-accent-green/80 p-6 text-white">
                     <h3 className="text-xl font-bold mb-2">
-                      Volume {volume.volume_number}
+                      Volume {volume.volumeNumber}
                     </h3>
                     <p className="text-green-100 text-sm">
-                      {volume.year} • {volume.issues.length} issue{volume.issues.length !== 1 ? 's' : ''}
+                      {volume.year} • {volume.issues?.length || 0} issue{(volume.issues?.length || 0) !== 1 ? 's' : ''}
                     </p>
                   </div>
                   <div className="p-6">
@@ -273,7 +274,7 @@ export default function Home() {
                       </p>
                     )}
                     <Link
-                      href={`/articles?volume=${volume.volume_number}`}
+                      href={`/articles?volume=${volume.volumeNumber}`}
                       className="inline-flex items-center text-accent-green hover:text-accent-green/80 font-semibold transition-colors"
                     >
                       Browse Articles
@@ -305,11 +306,11 @@ export default function Home() {
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {latestArticles.map((article: ArticleWithDetails) => (
+              {latestArticles.map((article: any) => (
                 <div key={article.id} className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6 hover:shadow-md transition-shadow">
                   <div className="mb-4">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-green/10 text-green-800 border border-green-200 mb-3">
-                      Vol. {article.volume_number}, Issue {article.issue_number}
+                      Vol. {article.volume?.volumeNumber}, Issue {article.issue?.issueNumber}
                     </span>
                     <h3 className="text-lg font-semibold text-accent-black mb-2 line-clamp-2">
                       {article.title}
@@ -323,10 +324,10 @@ export default function Home() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-neutral-500">
-                      {formatDate(article.published_at)}
+                      {formatDate(article.publishedAt)}
                     </span>
                     <Link
-                      href={`/articles/${article.id}`}
+                      href={`/articles/${article.slug || article.id}`}
                       className="text-accent-red hover:text-accent-red/80 font-semibold text-sm transition-colors"
                     >
                       Read More

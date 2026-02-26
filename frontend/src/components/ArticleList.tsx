@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArticleSearchFilters, ArticleWithDetails, ArticleSearchResponse } from '@/types/article';
-import { articleApi } from '@/lib/articleApi';
+import { ArticleSearchFilters } from '@/types/article';
+import { articlesApi } from '@/lib/api-client';
 
 interface ArticleListProps {
   filters: ArticleSearchFilters;
@@ -11,7 +11,7 @@ interface ArticleListProps {
 }
 
 export const ArticleList: React.FC<ArticleListProps> = ({ filters, searchQuery }) => {
-  const [articles, setArticles] = useState<ArticleWithDetails[]>([]);
+  const [articles, setArticles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,12 +33,12 @@ export const ArticleList: React.FC<ArticleListProps> = ({ filters, searchQuery }
       setIsLoading(true);
       setError(null);
 
-      let response: ArticleSearchResponse;
+      let response: any;
 
       if (searchQuery.trim()) {
-        response = await articleApi.searchArticles(searchQuery, page, articlesPerPage);
+        response = await articlesApi.search(searchQuery, page, articlesPerPage);
       } else {
-        response = await articleApi.getPublishedArticles(page, articlesPerPage, filters);
+        response = await articlesApi.getAll({ page, limit: articlesPerPage, ...filters } as any);
       }
 
       // Ensure response has the expected structure
@@ -66,11 +66,12 @@ export const ArticleList: React.FC<ArticleListProps> = ({ filters, searchQuery }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const formatAuthors = (authors: string[]) => {
-    if (authors.length === 0) return 'Unknown Author';
-    if (authors.length === 1) return authors[0];
-    if (authors.length === 2) return `${authors[0]} and ${authors[1]}`;
-    return `${authors[0]} et al.`;
+  const formatAuthors = (authors: any[]) => {
+    if (!authors || authors.length === 0) return 'Unknown Author';
+    const names = authors.map((a: any) => typeof a === 'string' ? a : a.name || 'Unknown');
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    return `${names[0]} et al.`;
   };
 
   const formatDate = (dateString: string) => {
@@ -182,11 +183,11 @@ export const ArticleList: React.FC<ArticleListProps> = ({ filters, searchQuery }
                       Published
                     </span>
                     <span className="text-xs text-neutral-500">
-                      Vol. {article.volume_number}, Issue {article.issue_number}
+                      Vol. {article.volume?.volumeNumber}, Issue {article.issue?.issueNumber}
                     </span>
                   </div>
                   
-                  <Link href={`/articles/${article.id}`}>
+                  <Link href={`/articles/${article.slug || article.id || article._id}`}>
                     <h3 className="text-lg font-semibold text-neutral-900 hover:text-accent-green transition-colors line-clamp-2 cursor-pointer">
                       {article.title}
                     </h3>
@@ -228,20 +229,20 @@ export const ArticleList: React.FC<ArticleListProps> = ({ filters, searchQuery }
                 {/* Footer */}
                 <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
                   <div className="text-xs text-neutral-500">
-                    Published {formatDate(article.published_at)}
+                    Published {formatDate(article.publishedAt)}
                   </div>
                   
                   <div className="flex items-center space-x-2">
                     <Link
-                      href={`/articles/${article.id}`}
+                      href={`/articles/${article.slug || article.id || article._id}`}
                       className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-accent-green border border-accent-green rounded-md hover:bg-accent-green hover:text-white transition-colors"
                     >
                       Read More
                     </Link>
                     
-                    {article.pdf_url && (
+                    {article.pdfUrl && (
                       <a
-                        href={article.pdf_url}
+                        href={article.pdfUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-neutral-700 border border-neutral-300 rounded-md hover:bg-neutral-50 transition-colors"

@@ -1,5 +1,0 @@
-[wsl2]
-memory=6GB         # Limits VM memory to 6GB (adjust up to available RAM)
-processors=2       # Limits number of processors to 2 (or more if you have them)
-swap=1GB           # Optional swap file size
-localhostForwarding=true

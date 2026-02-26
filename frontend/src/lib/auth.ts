@@ -1,165 +1,43 @@
-import { AuthResponse, LoginRequest, RegisterRequest } from '@/types/auth';
+/**
+ * Auth service — thin wrapper around apiClient.auth
+ * Used by AuthProvider for login / register / logout flows.
+ */
 
-// Use Next.js API routes instead of external backend
-const API_BASE_URL = '/api';
+import { AuthResponse, LoginRequest, RegisterRequest } from '@/types/auth';
+import { authApi } from './api-client';
 
 class AuthService {
-  private baseURL: string;
-
-  constructor() {
-    this.baseURL = `${API_BASE_URL}/auth`;
-  }
-
-  /**
-   * Login user
-   */
   async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response = await fetch(`${this.baseURL}/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(credentials),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Login failed');
-    }
-
-    const result = await response.json();
-    return result;
+    return authApi.login(credentials);
   }
 
-  /**
-   * Register user
-   */
-  async register(userData: RegisterRequest): Promise<AuthResponse> {
-    const response = await fetch(`${this.baseURL}/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(userData),
+  async register(data: RegisterRequest): Promise<AuthResponse> {
+    return authApi.register({
+      email: data.email,
+      password: data.password,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      affiliation: data.affiliation,
+      role: data.role,
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Registration failed');
-    }
-
-    const registerResult = await response.json();
-    return registerResult;
   }
 
-  /**
-   * Refresh access token
-   */
-  async refreshToken(refreshToken: string): Promise<AuthResponse> {
-    const response = await fetch(`${this.baseURL}/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refreshToken }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Token refresh failed');
-    }
-
-    const result = await response.json();
-    return result.data;
+  async refreshToken(token: string): Promise<AuthResponse> {
+    return authApi.refreshToken(token);
   }
 
-  /**
-   * Get user profile
-   */
-  async getProfile(token: string): Promise<AuthResponse['user']> {
-    const response = await fetch(`${this.baseURL}/profile`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to get profile');
-    }
-
-    const result = await response.json();
-    return result.data.user;
+  async getProfile(): Promise<AuthResponse['user']> {
+    const res = await authApi.getProfile();
+    return res.user;
   }
 
-  /**
-   * Validate token
-   */
-  async validateToken(token: string): Promise<boolean> {
+  async logout(): Promise<void> {
     try {
-      const response = await fetch(`${this.baseURL}/validate`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      return response.ok;
+      await authApi.logout();
     } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Logout (client-side token removal)
-   */
-  async logout(token?: string): Promise<void> {
-    if (token) {
-      try {
-        await fetch(`${this.baseURL}/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch {
-        // Ignore logout errors - we'll clear local storage anyway
-      }
+      // Swallow — we clear local storage regardless
     }
   }
 }
 
 export const authService = new AuthService();
-
-/**
- * Get stored authentication token
- */
-export const getToken = (): string | null => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('token');
-  }
-  return null;
-};
-
-/**
- * Store authentication token
- */
-export const setToken = (token: string): void => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('token', token);
-  }
-};
-
-/**
- * Remove authentication token
- */
-export const removeToken = (): void => {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-  }
-};

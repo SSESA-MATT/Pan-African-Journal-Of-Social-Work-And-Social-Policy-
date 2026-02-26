@@ -1,87 +1,55 @@
 /**
- * Token storage utilities for client-side authentication
+ * Client-side storage for authentication tokens and user data.
+ * Single source of truth — every module reads/writes through here.
  */
 
-const ACCESS_TOKEN_KEY = 'africa_journal_access_token';
-const REFRESH_TOKEN_KEY = 'africa_journal_refresh_token';
-const USER_KEY = 'africa_journal_user';
+const TOKEN_KEY = 'paj_token';
+const REFRESH_KEY = 'paj_refresh_token';
+const USER_KEY = 'paj_user';
+
+function isBrowser(): boolean {
+  return typeof window !== 'undefined';
+}
 
 export const tokenStorage = {
-  /**
-   * Store access token
-   */
-  setAccessToken: (token: string): void => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(ACCESS_TOKEN_KEY, token);
-    }
+  // ── Access token ──────────────────────────────────────────
+  getAccessToken(): string | null {
+    return isBrowser() ? localStorage.getItem(TOKEN_KEY) : null;
+  },
+  setAccessToken(token: string) {
+    if (isBrowser()) localStorage.setItem(TOKEN_KEY, token);
   },
 
-  /**
-   * Get access token
-   */
-  getAccessToken: (): string | null => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(ACCESS_TOKEN_KEY);
-    }
-    return null;
+  // ── Refresh token ─────────────────────────────────────────
+  getRefreshToken(): string | null {
+    return isBrowser() ? localStorage.getItem(REFRESH_KEY) : null;
+  },
+  setRefreshToken(token: string) {
+    if (isBrowser()) localStorage.setItem(REFRESH_KEY, token);
   },
 
-  /**
-   * Store refresh token
-   */
-  setRefreshToken: (token: string): void => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(REFRESH_TOKEN_KEY, token);
-    }
+  // ── User object ───────────────────────────────────────────
+  getUser<T = any>(): T | null {
+    if (!isBrowser()) return null;
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  },
+  setUser(user: any) {
+    if (isBrowser()) localStorage.setItem(USER_KEY, JSON.stringify(user));
   },
 
-  /**
-   * Get refresh token
-   */
-  getRefreshToken: (): string | null => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(REFRESH_TOKEN_KEY);
-    }
-    return null;
+  // ── Batch helpers ─────────────────────────────────────────
+  /** Store the complete auth response from login / register */
+  setAuthData(data: { user: any; token: string; refresh_token: string }) {
+    this.setAccessToken(data.token);
+    this.setRefreshToken(data.refresh_token);
+    this.setUser(data.user);
   },
-
-  /**
-   * Store user data
-   */
-  setUser: (user: any): void => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
-    }
-  },
-
-  /**
-   * Get user data
-   */
-  getUser: (): any | null => {
-    if (typeof window !== 'undefined') {
-      const userData = localStorage.getItem(USER_KEY);
-      return userData ? JSON.parse(userData) : null;
-    }
-    return null;
-  },
-
-  /**
-   * Clear all auth data
-   */
-  clearAuth: (): void => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(ACCESS_TOKEN_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
-    }
-  },
-
-  /**
-   * Store complete auth response
-   */
-  setAuthData: (authData: { user: any; token: string; refresh_token: string }): void => {
-    tokenStorage.setAccessToken(authData.token);
-    tokenStorage.setRefreshToken(authData.refresh_token);
-    tokenStorage.setUser(authData.user);
+  /** Wipe everything on logout */
+  clearAuth() {
+    if (!isBrowser()) return;
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_KEY);
+    localStorage.removeItem(USER_KEY);
   },
 };

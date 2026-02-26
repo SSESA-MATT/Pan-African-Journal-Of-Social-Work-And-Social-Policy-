@@ -1,3 +1,0 @@
--- PRE-MIGRATION CHECK SCRIPT
--- Date: 2024-10-27
--- Description: Check cur

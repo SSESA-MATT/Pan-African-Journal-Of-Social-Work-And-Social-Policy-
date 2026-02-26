@@ -7,6 +7,17 @@ import { tokenStorage } from '@/lib/storage';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Decode JWT payload and check expiration
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    // Add 60s buffer so we don't use a token about to expire
+    return payload.exp * 1000 < Date.now() + 60000;
+  } catch {
+    return true;
+  }
+}
+
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -16,51 +27,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize auth state from storage
+  // Restore auth state from localStorage on mount
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const storedToken = tokenStorage.getAccessToken();
-        const storedUser = tokenStorage.getUser();
+    const storedToken = tokenStorage.getAccessToken();
+    const storedUser = tokenStorage.getUser<User>();
 
-        console.log('AuthProvider init - storedToken:', !!storedToken, 'storedUser:', storedUser);
-        console.log('AuthProvider init - storedToken actual:', storedToken);
-        console.log('AuthProvider init - storedUser actual:', storedUser);
-
-        if (storedToken && storedUser) {
-          // For Supabase, we trust the stored token if user exists
-          // Supabase handles token expiry automatically
-          setToken(storedToken);
-          setUser(storedUser);
-          console.log('Auth restored from storage - user role:', storedUser.role);
-        } else {
-          console.log('No stored auth found - storedToken:', !!storedToken, 'storedUser:', !!storedUser);
-          tokenStorage.clearAuth();
-        }
-      } catch (error) {
-        console.error('Auth initialization error:', error);
-        tokenStorage.clearAuth();
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initializeAuth();
+    if (storedToken && storedUser && !isTokenExpired(storedToken)) {
+      setToken(storedToken);
+      setUser(storedUser);
+    } else {
+      // Token missing, invalid, or expired — clear stale auth data
+      tokenStorage.clearAuth();
+    }
+    setIsLoading(false);
   }, []);
 
   const login = async (credentials: LoginRequest): Promise<void> => {
     try {
       setIsLoading(true);
-      console.log('Starting login process...');
       const authData = await authService.login(credentials);
-      console.log('Login API response:', authData);
-      
       tokenStorage.setAuthData(authData);
       setToken(authData.token);
       setUser(authData.user);
-      console.log('Auth state updated - user:', authData.user, 'token:', !!authData.token);
     } catch (error) {
-      console.error('Login error:', error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -71,7 +60,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       const authData = await authService.register(userData);
-      
       tokenStorage.setAuthData(authData);
       setToken(authData.token);
       setUser(authData.user);
@@ -84,11 +72,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async (): Promise<void> => {
     try {
-      if (token) {
-        await authService.logout(token);
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
+      await authService.logout();
+    } catch {
+      // ignore
     } finally {
       tokenStorage.clearAuth();
       setToken(null);
@@ -96,31 +82,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const isAuthenticated = !!user && !!token;
-  
-  const value: AuthContextType = {
-    user,
-    token,
-    login,
-    register,
-    logout,
-    isLoading,
-    isAuthenticated,
+  const refreshUser = async (): Promise<void> => {
+    try {
+      const { authApi } = await import('@/lib/api-client');
+      const data = await authApi.getProfile();
+      setUser(data.user);
+      tokenStorage.setUser(data.user);
+    } catch {
+      // If profile fetch fails, keep current user
+    }
   };
 
-  // Debug logging
-  React.useEffect(() => {
-    console.log('Auth state update:', {
-      user: !!user,
-      token: !!token,
-      isAuthenticated,
-      isLoading,
-      userRole: user?.role
-    });
-  }, [user, token, isAuthenticated, isLoading]);
+  const isAuthenticated = !!user && !!token;
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, refreshUser, isLoading, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );

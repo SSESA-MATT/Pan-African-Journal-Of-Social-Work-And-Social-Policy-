@@ -1,136 +1,97 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyAccessToken, JWTPayload } from '../utils/jwt';
-import { User } from '../models/types';
+import jwt from 'jsonwebtoken';
+import config from '../config';
+import User, { IUser, UserRole } from '../models/User';
 
-// Extend Express Request interface to include user
-export interface AuthenticatedRequest extends Request {
-  user?: JWTPayload;
-}
-
+// Extend Express Request to include user
 declare global {
   namespace Express {
     interface Request {
-      user?: JWTPayload;
+      user?: IUser;
+      userId?: string;
     }
   }
 }
 
+interface JwtPayload {
+  userId: string;
+  email: string;
+  role: UserRole;
+}
+
 /**
- * Authentication middleware - verifies JWT token
+ * Authenticate user via JWT Bearer token
  */
-export const authenticate = (req: Request, res: Response, next: NextFunction) => {
+export const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
-    
-    if (!authHeader) {
-      return res.status(401).json({
-        error: 'Authentication Required',
-        message: 'No authorization header provided',
-      });
+    if (!authHeader?.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'Authentication required. Please provide a valid token.' });
+      return;
     }
 
-    const token = authHeader.split(' ')[1]; // Bearer <token>
-    
-    if (!token) {
-      return res.status(401).json({
-        error: 'Authentication Required',
-        message: 'No token provided',
-      });
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
+
+    const user = await User.findById(decoded.userId);
+    if (!user || !user.isActive) {
+      res.status(401).json({ error: 'User not found or account deactivated.' });
+      return;
     }
 
-    const decoded = verifyAccessToken(token);
-    req.user = decoded;
+    req.user = user;
+    req.userId = user.id;
     next();
-  } catch (error) {
-    return res.status(401).json({
-      error: 'Authentication Failed',
-      message: 'Invalid or expired token',
-    });
+  } catch (error: any) {
+    if (error.name === 'TokenExpiredError') {
+      res.status(401).json({ error: 'Token expired. Please login again.' });
+      return;
+    }
+    if (error.name === 'JsonWebTokenError') {
+      res.status(401).json({ error: 'Invalid token.' });
+      return;
+    }
+    res.status(500).json({ error: 'Authentication failed.' });
   }
 };
 
 /**
- * Authorization middleware factory - checks user roles
+ * Optional authentication — populates req.user if token is present, but doesn't fail
  */
-export const authorize = (...allowedRoles: User['role'][]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return res.status(401).json({
-        error: 'Authentication Required',
-        message: 'User not authenticated',
-      });
-    }
-
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({
-        error: 'Access Forbidden',
-        message: `Access denied. Required roles: ${allowedRoles.join(', ')}`,
-      });
-    }
-
-    next();
-  };
-};
-
-/**
- * Admin only middleware
- */
-export const adminOnly = authorize('admin');
-
-/**
- * Editor or Admin middleware
- */
-export const editorOrAdmin = authorize('editor', 'admin');
-
-/**
- * Reviewer, Editor, or Admin middleware
- */
-export const reviewerOrAbove = authorize('reviewer', 'editor', 'admin');
-
-/**
- * Any authenticated user middleware
- */
-export const authenticatedUser = authenticate;
-
-/**
- * Optional authentication middleware - doesn't fail if no token
- */
-export const optionalAuth = (req: Request, res: Response, next: NextFunction) => {
+export const optionalAuth = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
-    
-    if (authHeader) {
+    if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
-      if (token) {
-        const decoded = verifyAccessToken(token);
-        req.user = decoded;
+      const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
+      const user = await User.findById(decoded.userId);
+      if (user && user.isActive) {
+        req.user = user;
+        req.userId = user.id;
       }
     }
-    
-    next();
-  } catch (error) {
-    // Continue without authentication if token is invalid
-    next();
+  } catch {
+    // Silently ignore auth errors for optional auth
   }
+  next();
 };
 
 /**
- * Role-based access control middleware
+ * Require specific roles
  */
-export const requireRole = (allowedRoles: User['role'][]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+export const requireRole = (...roles: UserRole[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      return res.status(401).json({
-        error: 'Authentication Required',
-        message: 'User not authenticated',
-      });
+      res.status(401).json({ error: 'Authentication required.' });
+      return;
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({
-        error: 'Access Forbidden',
-        message: `Access denied. Required roles: ${allowedRoles.join(', ')}`,
+    if (!roles.includes(req.user.role)) {
+      res.status(403).json({
+        error: 'Access denied.',
+        message: `This action requires one of the following roles: ${roles.join(', ')}`,
       });
+      return;
     }
 
     next();
@@ -138,30 +99,22 @@ export const requireRole = (allowedRoles: User['role'][]) => {
 };
 
 /**
- * Resource ownership middleware - ensures user can only access their own resources
+ * Require ownership of a resource or admin/editor role
  */
-export const requireOwnership = (userIdParam: string = 'userId') => {
-  return (req: Request, res: Response, next: NextFunction) => {
+export const requireOwnershipOrRole = (getOwnerId: (req: Request) => string | undefined, ...roles: UserRole[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      return res.status(401).json({
-        error: 'Authentication Required',
-        message: 'User not authenticated',
-      });
+      res.status(401).json({ error: 'Authentication required.' });
+      return;
     }
 
-    const resourceUserId = req.params[userIdParam] || req.body[userIdParam];
-    
-    // Admins and editors can access any resource
-    if (req.user.role === 'admin' || req.user.role === 'editor') {
-      return next();
-    }
+    const ownerId = getOwnerId(req);
+    const isOwner = ownerId && req.userId === ownerId.toString();
+    const hasRole = roles.includes(req.user.role);
 
-    // Users can only access their own resources
-    if (req.user.userId !== resourceUserId) {
-      return res.status(403).json({
-        error: 'Access Forbidden',
-        message: 'You can only access your own resources',
-      });
+    if (!isOwner && !hasRole) {
+      res.status(403).json({ error: 'Access denied. You do not have permission to access this resource.' });
+      return;
     }
 
     next();

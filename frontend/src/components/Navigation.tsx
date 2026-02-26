@@ -2,30 +2,20 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuth } from './AuthProvider';
 import { JournalLogo } from './JournalLogo';
 
 export const Navigation: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
-  const router = useRouter();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const handleLogout = async () => {
     try {
       await logout();
     } catch (error) {
       console.error('Logout failed:', error);
-    }
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery('');
     }
   };
 
@@ -148,42 +138,31 @@ export const Navigation: React.FC = () => {
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="hidden md:flex flex-1 max-w-lg mx-8">
-            <form onSubmit={handleSearch} className="w-full">
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search articles, authors, keywords..."
-                  className="w-full bg-neutral-800 text-white placeholder-neutral-400 border border-neutral-600 rounded-lg px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
-                />
-                <button
-                  type="submit"
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </button>
-              </div>
-            </form>
-          </div>
-
           {/* User menu */}
           <div className="flex items-center">
             {isAuthenticated && user ? (
               <div className="relative">
                 <button
-                  onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="flex items-center text-sm text-white bg-neutral-800 rounded-full px-3 py-2 hover:bg-neutral-700 transition-colors"
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  onBlur={() => setTimeout(() => setIsUserMenuOpen(false), 200)}
+                  className="flex items-center text-sm text-white bg-neutral-800 rounded-full px-1.5 py-1.5 pr-3 hover:bg-neutral-700 transition-colors"
                 >
+                  {user.profile_picture ? (
+                    <img
+                      src={user.profile_picture}
+                      alt=""
+                      className="w-7 h-7 rounded-full object-cover mr-2"
+                    />
+                  ) : (
+                    <span className="w-7 h-7 rounded-full bg-accent-green flex items-center justify-center text-xs font-bold text-white mr-2">
+                      {user.first_name?.[0]}{user.last_name?.[0]}
+                    </span>
+                  )}
                   <span className="mr-2">
                     {user.first_name} {user.last_name}
                   </span>
                   <svg
-                    className={`w-4 h-4 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
+                    className={`w-4 h-4 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -193,13 +172,13 @@ export const Navigation: React.FC = () => {
                 </button>
 
                 {/* Dropdown menu */}
-                {isMenuOpen && (
+                {isUserMenuOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                     {(user.role === 'author' || user.role === 'admin' || user.role === 'editor') && (
                       <Link
                         href="/author"
                         className="block px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100 transition-colors"
-                        onClick={() => setIsMenuOpen(false)}
+                        onClick={() => setIsUserMenuOpen(false)}
                       >
                         <div className="flex items-center">
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -214,7 +193,7 @@ export const Navigation: React.FC = () => {
                       <Link
                         href="/reviewer"
                         className="block px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100 transition-colors"
-                        onClick={() => setIsMenuOpen(false)}
+                        onClick={() => setIsUserMenuOpen(false)}
                       >
                         <div className="flex items-center">
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -229,7 +208,7 @@ export const Navigation: React.FC = () => {
                       <Link
                         href="/admin"
                         className="block px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100 transition-colors"
-                        onClick={() => setIsMenuOpen(false)}
+                        onClick={() => setIsUserMenuOpen(false)}
                       >
                         <div className="flex items-center">
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -246,7 +225,7 @@ export const Navigation: React.FC = () => {
                     <Link
                       href="/profile"
                       className="block px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100 transition-colors"
-                      onClick={() => setIsMenuOpen(false)}
+                      onClick={() => setIsUserMenuOpen(false)}
                     >
                       <div className="flex items-center">
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -289,7 +268,7 @@ export const Navigation: React.FC = () => {
 
             {/* Mobile menu button */}
             <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="md:hidden ml-4 text-neutral-300 hover:text-white"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -301,60 +280,37 @@ export const Navigation: React.FC = () => {
       </div>
 
       {/* Mobile menu */}
-      {isMenuOpen && (
+      {isMobileMenuOpen && (
         <div className="md:hidden bg-neutral-800 border-t border-neutral-700">
           <div className="px-2 pt-2 pb-3 space-y-1">
             <Link
               href="/"
               className="block text-neutral-300 hover:text-white px-3 py-2 text-base font-medium transition-colors"
-              onClick={() => setIsMenuOpen(false)}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Home
             </Link>
             <Link
               href="/about"
               className="block text-neutral-300 hover:text-white px-3 py-2 text-base font-medium transition-colors"
-              onClick={() => setIsMenuOpen(false)}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               About
             </Link>
             <Link
               href="/articles"
               className="block text-neutral-300 hover:text-white px-3 py-2 text-base font-medium transition-colors"
-              onClick={() => setIsMenuOpen(false)}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Articles
             </Link>
             <Link
               href="/search"
               className="block text-neutral-300 hover:text-white px-3 py-2 text-base font-medium transition-colors"
-              onClick={() => setIsMenuOpen(false)}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Search
             </Link>
-            
-            {/* Mobile Search */}
-            <div className="px-3 py-2">
-              <form onSubmit={handleSearch} className="w-full">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search articles..."
-                    className="w-full bg-neutral-700 text-white placeholder-neutral-400 border border-neutral-600 rounded-lg px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-accent-green focus:border-transparent"
-                  />
-                  <button
-                    type="submit"
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </button>
-                </div>
-              </form>
-            </div>
             
             {/* Mobile Guidelines section */}
             <div className="px-3 py-2">
@@ -363,35 +319,35 @@ export const Navigation: React.FC = () => {
                 <Link
                   href="/guidelines/authors"
                   className="block text-neutral-400 hover:text-white px-3 py-2 text-sm transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
+                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Author Guidelines
                 </Link>
                 <Link
                   href="/guidelines/reviewers"
                   className="block text-neutral-400 hover:text-white px-3 py-2 text-sm transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
+                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Reviewer Guidelines
                 </Link>
                 <Link
                   href="/guidelines/editorial"
                   className="block text-neutral-400 hover:text-white px-3 py-2 text-sm transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
+                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Editorial Guidelines
                 </Link>
                 <Link
                   href="/guidelines/ethics"
                   className="block text-neutral-400 hover:text-white px-3 py-2 text-sm transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
+                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Publication Ethics
                 </Link>
                 <Link
                   href="/guidelines/submission"
                   className="block text-neutral-400 hover:text-white px-3 py-2 text-sm transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
+                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Submission Process
                 </Link>
@@ -401,7 +357,7 @@ export const Navigation: React.FC = () => {
             <Link
               href="/contact"
               className="block text-neutral-300 hover:text-white px-3 py-2 text-base font-medium transition-colors"
-              onClick={() => setIsMenuOpen(false)}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Contact
             </Link>

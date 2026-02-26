@@ -3,13 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { ArticleView } from '@/components/ArticleView';
-import { ArticleWithDetails } from '@/types/article';
-import { articleApi } from '@/lib/articleApi';
+import { articlesApi } from '@/lib/api-client';
 
 export default function ArticlePage() {
   const params = useParams();
   const articleId = params.id as string;
-  const [article, setArticle] = useState<ArticleWithDetails | null>(null);
+  const [article, setArticle] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +23,7 @@ export default function ArticlePage() {
       setIsLoading(true);
       setError(null);
 
-      const response = await articleApi.getArticleById(articleId);
+      const response = await articlesApi.getByIdOrSlug(articleId);
       setArticle(response.article);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load article');

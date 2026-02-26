@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { reviewApi } from '../lib/reviewApi';
+import { reviewsApi } from '../lib/api-client';
 
 interface EnhancedReviewFormProps {
   submissionId: string;
@@ -332,10 +332,11 @@ export const EnhancedReviewForm: React.FC<EnhancedReviewFormProps> = ({
         recommendation
       };
 
-      await reviewApi.createReview({
-        submissionId,
-        comments: JSON.stringify(compiledReview),
-        recommendation
+      await reviewsApi.update(submissionId, {
+        commentsToAuthor: JSON.stringify(compiledReview),
+        commentsToEditor: confidentialComments || undefined,
+        recommendation,
+        status: 'completed',
       });
 
       // Clear saved progress

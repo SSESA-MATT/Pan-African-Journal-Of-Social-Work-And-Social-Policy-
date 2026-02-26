@@ -2,19 +2,19 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArticleWithDetails } from '@/types/article';
 
 interface ArticleViewProps {
-  article: ArticleWithDetails;
+  article: any;
 }
 
 export const ArticleView: React.FC<ArticleViewProps> = ({ article }) => {
-  const formatAuthors = (authors: string[]) => {
-    if (authors.length === 0) return 'Unknown Author';
-    if (authors.length === 1) return authors[0];
-    if (authors.length === 2) return `${authors[0]} and ${authors[1]}`;
-    if (authors.length <= 4) return `${authors.slice(0, -1).join(', ')}, and ${authors[authors.length - 1]}`;
-    return `${authors.slice(0, 3).join(', ')}, et al.`;
+  const formatAuthors = (authors: any[]) => {
+    if (!authors || authors.length === 0) return 'Unknown Author';
+    const names = authors.map((a: any) => typeof a === 'string' ? a : a.name || 'Unknown');
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    if (names.length <= 4) return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+    return `${names.slice(0, 3).join(', ')}, et al.`;
   };
 
   const formatDate = (dateString: string) => {
@@ -60,13 +60,13 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ article }) => {
                   Published Article
                 </span>
                 <span className="text-sm text-neutral-600">
-                  Volume {article.volume_number}, Issue {article.issue_number} ({article.volume_year})
+                  Volume {article.volume?.volumeNumber}, Issue {article.issue?.issueNumber} ({article.volume?.year})
                 </span>
               </div>
               
-              {article.pdf_url && (
+              {article.pdfUrl && (
                 <a
-                  href={article.pdf_url}
+                  href={article.pdfUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center px-4 py-2 bg-accent-red text-white rounded-md hover:bg-accent-red/80 transition-colors font-medium"
@@ -96,18 +96,18 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ article }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 p-4 bg-neutral-50 rounded-lg border border-neutral-200">
               <div>
                 <h3 className="text-sm font-semibold text-neutral-700 mb-1">Publication Date</h3>
-                <p className="text-neutral-600">{formatDate(article.published_at)}</p>
+                <p className="text-neutral-600">{formatDate(article.publishedAt)}</p>
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-neutral-700 mb-1">Issue</h3>
                 <p className="text-neutral-600">
-                  Volume {article.volume_number}, Issue {article.issue_number}
+                  Volume {article.volume?.volumeNumber}, Issue {article.issue?.issueNumber}
                 </p>
               </div>
-              {article.volume_description && (
+              {article.volume?.description && (
                 <div className="md:col-span-2">
                   <h3 className="text-sm font-semibold text-neutral-700 mb-1">Volume Description</h3>
-                  <p className="text-neutral-600">{article.volume_description}</p>
+                  <p className="text-neutral-600">{article.volume.description}</p>
                 </div>
               )}
             </div>
@@ -117,7 +117,7 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ article }) => {
               <div className="mb-6">
                 <h3 className="text-sm font-semibold text-neutral-700 mb-3">Keywords</h3>
                 <div className="flex flex-wrap gap-2">
-                  {article.keywords.map((keyword, index) => (
+                  {article.keywords.map((keyword: string, index: number) => (
                     <span
                       key={index}
                       className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-neutral-100 text-neutral-800 border border-neutral-200"
@@ -159,13 +159,13 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ article }) => {
             </h2>
             <div className="bg-neutral-50 rounded-lg border border-neutral-200 p-4">
               <p className="text-sm text-neutral-700 font-mono leading-relaxed">
-                {formatAuthors(article.authors)} ({article.volume_year}). {article.title}. 
+                {formatAuthors(article.authors)} ({article.volume?.year}). {article.title}. 
                 <em> Pan African Journal Of Social Work And Social Policy</em>, 
-                <em>{article.volume_number}</em>({article.issue_number}).
+                <em>{article.volume?.volumeNumber}</em>({article.issue?.issueNumber}).
               </p>
               <button
                 onClick={() => {
-                  const citation = `${formatAuthors(article.authors)} (${article.volume_year}). ${article.title}. Pan African Journal Of Social Work And Social Policy, ${article.volume_number}(${article.issue_number}).`;
+                  const citation = `${formatAuthors(article.authors)} (${article.volume?.year}). ${article.title}. Pan African Journal Of Social Work And Social Policy, ${article.volume?.volumeNumber}(${article.issue?.issueNumber}).`;
                   navigator.clipboard.writeText(citation);
                 }}
                 className="mt-3 inline-flex items-center px-3 py-1.5 text-sm font-medium text-accent-green border border-accent-green rounded-md hover:bg-accent-green hover:text-white transition-colors"
@@ -184,9 +184,9 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ article }) => {
           <div className="p-8">
             <h2 className="text-2xl font-bold text-neutral-900 mb-6">Actions</h2>
             <div className="flex flex-wrap gap-4">
-              {article.pdf_url && (
+              {article.pdfUrl && (
                 <a
-                  href={article.pdf_url}
+                  href={article.pdfUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center px-6 py-3 bg-accent-red text-white rounded-md hover:bg-accent-red/80 transition-colors font-medium"
@@ -212,13 +212,13 @@ export const ArticleView: React.FC<ArticleViewProps> = ({ article }) => {
               </button>
 
               <Link
-                href={`/articles?volume=${article.volume_number}`}
+                href={`/articles?volume=${article.volume?.volumeNumber}`}
                 className="inline-flex items-center px-6 py-3 border border-neutral-300 text-neutral-700 rounded-md hover:bg-neutral-50 transition-colors font-medium"
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
-                View Volume {article.volume_number}
+                View Volume {article.volume?.volumeNumber}
               </Link>
 
               <Link
