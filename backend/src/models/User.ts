@@ -5,7 +5,9 @@ export type UserRole = 'author' | 'reviewer' | 'editor' | 'admin';
 
 export interface IUser extends Document {
   email: string;
-  password: string;
+  /** Optional for OAuth-authenticated users (e.g. GitHub sign-in) */
+  password?: string;
+  githubId?: string;
   firstName: string;
   lastName: string;
   affiliation: string;
@@ -37,9 +39,13 @@ const userSchema = new Schema<IUser>(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
       minlength: [8, 'Password must be at least 8 characters'],
       select: false, // Don't include password in queries by default
+    },
+    githubId: {
+      type: String,
+      sparse: true,
+      index: true,
     },
     firstName: {
       type: String,
@@ -92,7 +98,7 @@ userSchema.virtual('fullName').get(function (this: IUser) {
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+  if (!this.isModified('password') || !this.password) return next();
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
   next();
@@ -100,6 +106,7 @@ userSchema.pre('save', async function (next) {
 
 // Compare password method
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
+  if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 
