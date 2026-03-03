@@ -43,7 +43,11 @@ const config = {
   // URLs
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
   apiUrl: process.env.API_URL || 'http://localhost:5000',
-  
+
+  // GitHub OAuth
+  githubClientId: process.env.GITHUB_CLIENT_ID || '',
+  githubClientSecret: process.env.GITHUB_CLIENT_SECRET || '',
+
   // File uploads
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10), // 10MB
   allowedFileTypes: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],

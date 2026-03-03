@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import https from 'https';
 import { z } from 'zod';
 import User from '../models/User';
 import config from '../config';
@@ -10,6 +11,28 @@ import cloudinary from '../config/cloudinary';
 import emailService from '../services/email-service';
 
 const router = Router();
+
+// ─── Helper: JSON HTTPS request ──────────────────────────────
+function httpsRequest(url: string, options: https.RequestOptions = {}, body?: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const reqOptions: https.RequestOptions = {
+      hostname: parsedUrl.hostname,
+      path: parsedUrl.pathname + parsedUrl.search,
+      ...options,
+    };
+    const req = https.request(reqOptions, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); } catch { resolve(data); }
+      });
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
 
 // ─── Helper: Serialize user for API responses ─────────────────
 function serializeUser(user: any) {
@@ -326,6 +349,127 @@ router.delete('/profile/avatar', authenticate, async (req: Request, res: Respons
 // ─── GET /api/auth/validate ───────────────────────────────────
 router.get('/validate', authenticate, (_req: Request, res: Response) => {
   res.json({ valid: true });
+});
+
+// ─── GET /api/auth/github ─────────────────────────────────────
+router.get('/github', (_req: Request, res: Response) => {
+  if (!config.githubClientId) {
+    res.status(503).json({ error: 'GitHub OAuth is not configured.' });
+    return;
+  }
+  const params = new URLSearchParams({
+    client_id: config.githubClientId,
+    redirect_uri: `${config.apiUrl}/api/auth/github/callback`,
+    scope: 'user:email',
+  });
+  res.redirect(`https://github.com/login/oauth/authorize?${params.toString()}`);
+});
+
+// ─── GET /api/auth/github/callback ───────────────────────────
+router.get('/github/callback', async (req: Request, res: Response) => {
+  const frontendUrl = config.frontendUrl;
+  try {
+    const { code } = req.query;
+    if (!code || typeof code !== 'string') {
+      res.redirect(`${frontendUrl}/login?error=github_oauth_failed`);
+      return;
+    }
+
+    // Exchange code for access token
+    const tokenData = await httpsRequest(
+      'https://github.com/login/oauth/access_token',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      },
+      JSON.stringify({
+        client_id: config.githubClientId,
+        client_secret: config.githubClientSecret,
+        code,
+      })
+    );
+
+    const accessToken = tokenData.access_token;
+    if (!accessToken) {
+      res.redirect(`${frontendUrl}/login?error=github_oauth_failed`);
+      return;
+    }
+
+    // Get GitHub user info
+    const githubUser: any = await httpsRequest('https://api.github.com/user', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'User-Agent': 'PanAfriJournal',
+        Accept: 'application/vnd.github.v3+json',
+      },
+    });
+
+    // Get primary verified email if not public on profile
+    let email: string = githubUser.email;
+    if (!email) {
+      const emails: any[] = await httpsRequest('https://api.github.com/user/emails', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'User-Agent': 'PanAfriJournal',
+          Accept: 'application/vnd.github.v3+json',
+        },
+      });
+      const primary = Array.isArray(emails) ? emails.find((e) => e.primary && e.verified) : null;
+      email = primary?.email;
+    }
+
+    if (!email) {
+      res.redirect(`${frontendUrl}/login?error=github_no_email`);
+      return;
+    }
+
+    // Find or create user
+    let user = await User.findOne({ $or: [{ githubId: String(githubUser.id) }, { email }] });
+
+    if (user) {
+      if (!user.githubId) {
+        user.githubId = String(githubUser.id);
+        await user.save();
+      }
+    } else {
+      const nameParts = ((githubUser.name as string) || (githubUser.login as string) || '')
+        .split(' ')
+        .filter(Boolean);
+      user = await User.create({
+        email,
+        githubId: String(githubUser.id),
+        firstName: nameParts[0] || (githubUser.login as string) || 'GitHub',
+        lastName: nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'User',
+        affiliation: (githubUser.company as string) || '',
+        role: 'author',
+        bio: (githubUser.bio as string) || '',
+        profilePicture: githubUser.avatar_url
+          ? { url: githubUser.avatar_url as string, publicId: '' }
+          : { url: '', publicId: '' },
+      });
+    }
+
+    if (!user.isActive) {
+      res.redirect(`${frontendUrl}/login?error=account_deactivated`);
+      return;
+    }
+
+    user.lastLogin = new Date();
+    await user.save();
+
+    const tokens = generateTokens(user.id, user.email, user.role);
+    const params = new URLSearchParams({
+      token: tokens.token,
+      refresh_token: tokens.refreshToken,
+    });
+    res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
+  } catch (error) {
+    console.error('GitHub OAuth error:', error);
+    res.redirect(`${frontendUrl}/login?error=github_oauth_failed`);
+  }
 });
 
 export default router;
